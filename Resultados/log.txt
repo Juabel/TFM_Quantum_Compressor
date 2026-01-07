@@ -1,0 +1,628 @@
+######################  SOLO ENCODER DE IMAGENES ######################
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (100, 100)
+Compressed dimension: (50, 50)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Artificales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 113.35 segundos
+Fidelidad completa media: 0.872149
+Ratio de compresion: 3.84
+Tamano original medio: 0.007959 MB
+Tamano comprimido medio: 0.002072 MB
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (200, 200)
+Compressed dimension: (100, 100)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Artificales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 456.42 segundos
+Fidelidad completa media: 0.861170
+Ratio de compresion: 4.00
+Tamano original medio: 0.031601 MB
+Tamano comprimido medio: 0.007914 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 200)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Artificales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 1806.12 segundos
+Fidelidad completa media: 0.857697
+Ratio de compresion: 3.95
+Tamano original medio: 0.122114 MB
+Tamano comprimido medio: 0.030966 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (100, 100)
+Compressed dimension: (50, 50)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 114.56 segundos
+Fidelidad completa media: 0.851699
+Ratio de compresion: 3.88
+Tamano original medio: 0.008253 MB
+Tamano comprimido medio: 0.002134 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (200, 200)
+Compressed dimension: (100, 100)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 445.98 segundos
+Fidelidad completa media: 0.839357
+Ratio de compresion: 4.00
+Tamano original medio: 0.032563 MB
+Tamano comprimido medio: 0.008140 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (100, 100)
+Compressed dimension: (50, 50)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales y Artificiales
+Numero de imagenes: 100
+-------------  -------------
+Tiempo de ejecucion: 232.21 segundos
+Fidelidad completa media: 0.861924
+Ratio de compresion: 3.86
+Tamano original medio: 0.008106 MB
+Tamano comprimido medio: 0.002103 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (200, 200)
+Compressed dimension: (100, 100)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales y Artificiales
+Numero de imagenes: 100
+-------------  -------------
+Tiempo de ejecucion: 922.75 segundos
+Fidelidad completa media: 0.850264
+Ratio de compresion: 4.00
+Tamano original medio: 0.032082 MB
+Tamano comprimido medio: 0.008027 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 200)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 1891.63 segundos
+Fidelidad completa media: 0.834554
+Ratio de compresion: 3.97
+Tamano original medio: 0.125777 MB
+Tamano comprimido medio: 0.031695 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 200)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales
+Numero de imagenes: 100
+-------------  -------------
+Tiempo de ejecucion: 3789.02 segundos
+Fidelidad completa media: 0.846125
+Ratio de compresion: 3.96
+Tamano original medio: 0.123946 MB
+Tamano comprimido medio: 0.031331 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (100, 100)
+Compressed dimension: (50, 50)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 110.47 segundos
+Fidelidad completa media: 0.906543
+Ratio de compresion: 3.85
+Tamano original medio: 0.007959 MB
+Tamano comprimido medio: 0.002070 MB
+
+
+
+
+
+
+
+######################  CAMBIO EN EL CNOT ######################
+
+
+
+
+
+
+
+
+
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (100, 100)
+Compressed dimension: (50, 50)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 115.85 segundos
+Fidelidad completa media: 0.880719
+Ratio de compresion: 3.90
+Tamano original medio: 0.007959 MB
+Tamano comprimido medio: 0.002042 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (100, 100)
+Compressed dimension: (50, 50)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 115.72 segundos
+Fidelidad completa media: 0.869596
+Ratio de compresion: 4.06
+Tamano original medio: 0.008253 MB
+Tamano comprimido medio: 0.002037 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (100, 100)
+Compressed dimension: (50, 50)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales y Artificiales
+Numero de imagenes: 100
+-------------  -------------
+Tiempo de ejecucion: 227.42 segundos
+Fidelidad completa media: 0.875157
+Ratio de compresion: 3.98
+Tamano original medio: 0.008106 MB
+Tamano comprimido medio: 0.002040 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (200, 200)
+Compressed dimension: (100, 100)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 478.52 segundos
+Fidelidad completa media: 0.870190
+Ratio de compresion: 4.04
+Tamano original medio: 0.031601 MB
+Tamano comprimido medio: 0.007837 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (200, 200)
+Compressed dimension: (100, 100)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 480.09 segundos
+Fidelidad completa media: 0.858732
+Ratio de compresion: 4.16
+Tamano original medio: 0.032563 MB
+Tamano comprimido medio: 0.007836 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (200, 200)
+Compressed dimension: (100, 100)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales y Artificiales
+Numero de imagenes: 100
+-------------  -------------
+Tiempo de ejecucion: 919.31 segundos
+Fidelidad completa media: 0.864461
+Ratio de compresion: 4.10
+Tamano original medio: 0.032082 MB
+Tamano comprimido medio: 0.007836 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 200)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 1831.96 segundos
+Fidelidad completa media: 0.867930
+Ratio de compresion: 3.97
+Tamano original medio: 0.122114 MB
+Tamano comprimido medio: 0.030801 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 200)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 1869.37 segundos
+Fidelidad completa media: 0.853320
+Ratio de compresion: 4.07
+Tamano original medio: 0.125777 MB
+Tamano comprimido medio: 0.030871 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 200)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'PauliX': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales y Artificiales
+Numero de imagenes: 100
+-------------  -------------
+Tiempo de ejecucion: 4445.87 segundos
+Fidelidad completa media: 0.860625
+Ratio de compresion: 4.02
+Tamano original medio: 0.123946 MB
+Tamano comprimido medio: 0.030836 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (100, 100)
+Compressed dimension: (50, 50)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 107.31 segundos
+Fidelidad completa media: 0.893658
+Ratio de compresion: 3.90
+Tamano original medio: 0.007959 MB
+Tamano comprimido medio: 0.002044 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (100, 100)
+Compressed dimension: (50, 50)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 107.42 segundos
+Fidelidad completa media: 0.878603
+Ratio de compresion: 4.07
+Tamano original medio: 0.008253 MB
+Tamano comprimido medio: 0.002034 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (100, 100)
+Compressed dimension: (50, 50)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales y Artificiales
+Numero de imagenes: 100
+-------------  -------------
+Tiempo de ejecucion: 216.41 segundos
+Fidelidad completa media: 0.886130
+Ratio de compresion: 3.98
+Tamano original medio: 0.008106 MB
+Tamano comprimido medio: 0.002039 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (200, 200)
+Compressed dimension: (100, 100)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 421.27 segundos
+Fidelidad completa media: 0.884040
+Ratio de compresion: 4.03
+Tamano original medio: 0.031601 MB
+Tamano comprimido medio: 0.007839 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (200, 200)
+Compressed dimension: (100, 100)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 421.44 segundos
+Fidelidad completa media: 0.869464
+Ratio de compresion: 4.16
+Tamano original medio: 0.032563 MB
+Tamano comprimido medio: 0.007828 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (200, 200)
+Compressed dimension: (100, 100)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales y Artificiales
+Numero de imagenes: 100
+-------------  -------------
+Tiempo de ejecucion: 862.63 segundos
+Fidelidad completa media: 0.876752
+Ratio de compresion: 4.10
+Tamano original medio: 0.032082 MB
+Tamano comprimido medio: 0.007834 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 200)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 1762.69 segundos
+Fidelidad completa media: 0.881945
+Ratio de compresion: 3.97
+Tamano original medio: 0.122114 MB
+Tamano comprimido medio: 0.030798 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 200)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 1733.31 segundos
+Fidelidad completa media: 0.865577
+Ratio de compresion: 4.08
+Tamano original medio: 0.125777 MB
+Tamano comprimido medio: 0.030830 MB
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 200)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'CNOT': 1}
+Tipo de imagenes: Naturales y Artificiales
+Numero de imagenes: 100
+-------------  -------------
+Tiempo de ejecucion: 3388.57 segundos
+Fidelidad completa media: 0.873761
+Ratio de compresion: 4.02
+Tamano original medio: 0.123946 MB
+Tamano comprimido medio: 0.030814 MB
+
+
+######################  ENCODER Y DECODER DE IMAGENES SIN ENTRENAMIENTO Y SOLO CNOTS Y AMPLITUDE ######################
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 200)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 61.53 segundos
+Ratio de compresion: 3.93
+Tamano original medio: 0.117271 MB
+Tamano comprimido medio: 0.029807 MB
+
+MSE medio global de todas las imagenes: 17710.159451
+
+SSIM medio global de todas las imagenes: 0.000155
+
+
+######################  ENCODER Y DECODER DE IMAGENES CON ENTRENAMIENTO RY Y CNOTS Y AMPLITUDE (MNIST) ######################
+
+
+##4GL, 40LOC##
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 138.22 segundos
+Ratio de compresion: 1.73
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000172 MB
+
+MSE medio global de todas las imagenes: 0.261565
+
+SSIM medio global de todas las imagenes: 0.615810
+
+
+##2GL, 80LOC##
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 125.58 segundos
+Ratio de compresion: 1.70
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000175 MB
+
+MSE medio global de todas las imagenes: 0.267348
+
+SSIM medio global de todas las imagenes: 0.617477
+
+
+
+##8GL, 20LOC##
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 170.95 segundos
+Ratio de compresion: 1.51
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000196 MB
+
+MSE medio global de todas las imagenes: 0.261609
+
+SSIM medio global de todas las imagenes: 0.610478
+
+
+##1GL, 40LOC##
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 38.71 segundos
+Ratio de compresion: 1.59
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000187 MB
+
+MSE medio global de todas las imagenes: 0.288880
+
+SSIM medio global de todas las imagenes: 0.623192
+
+
+
+##2GL, 20LOC##
+
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 80.46 segundos
+Ratio de compresion: 1.50
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000198 MB
+
+MSE medio global de todas las imagenes: 0.286276
+
+SSIM medio global de todas las imagenes: 0.622224

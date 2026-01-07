@@ -1,0 +1,21 @@
+{
+    "python.repl.enableREPLSmartSend": false,
+
+    "python.analysis.extraPaths": [
+        "./"
+    ],
+
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/.venv": true,
+        "**/.mypy_cache": true
+    },
+
+    "files.watcherExclude": {
+        "**/SAR_Dataset/**": true,
+        "**/__pycache__/**": true,
+        "**/.git/**": true
+    },
+
+    "python.analysis.indexing": false
+}
