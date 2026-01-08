@@ -9,7 +9,7 @@ def imagen_flatten(img_array, i , j, block_size):
     block = img_array[i:i+block_size, j:j+block_size].astype(np.float64)
     block_norm = block / 255.0  # valores en [0,1]
 
-    block_sum = np.sum(block_norm)
+    block_sum = np.sum(block_norm)/ (block_size * block_size)  # Intensidad promedio del bloque original
 
     block_flat = block_norm.flatten(order='F')
 
@@ -43,19 +43,19 @@ def medicion(dev, n_qubits, state, params_rot, tecnica_de_encoding_ansatz):
 
 def medicion_decoder(dev_dec, n_qubits, z_vals, params_dec, tecnica_de_decoding_ansatz, block_sum):
     import circuito
-    z_vals_scaled = np.array([(-z + 1)/2 for z in z_vals])
+    z_vals_scaled = np.array([((-z + 1)/2 * block_sum) for z in z_vals])
 
     #return circuito.create_circuit_meas_decoder(dev_dec, n_qubits, z_vals, params_dec, tecnica_de_decoding_ansatz) # Ejecutar el circuito con los parámetros optimizados
     probs = circuito.create_circuit_module_dec(dev_dec, n_qubits, z_vals_scaled, params_dec, tecnica_de_decoding_ansatz) 
     return probs * block_sum
 
-def escalar_generar_imagen_mediciones_encoder(probs):
+def escalar_generar_imagen_mediciones_encoder(probs, block_sum):
     img = reconstruccion_bloque_encoder(probs)  # forma original, ej: 2x2 o 4x4
 
     # Escalar [-1,1] → [0,255]
-    img_255 = ((-img + 1) / 2 * 255).astype(np.uint8)
+    img_255 = ((-img + 1)/2 * block_sum).astype(np.uint8)
 
-    return img_255
+    return img_255 * 255
 
 
 def escalar_generar_imagen_mediciones_decoder(probs):
@@ -72,9 +72,10 @@ def loss_autoencoder_block(alpha, betta, block_flat, probs):
    
     reconstructed = reconstruccion_bloque_decoder(probs)
 
-    return alpha * qml.numpy.mean(
-        (block_flat - reconstructed) ** 2
-    )
+    loss_val = alpha * qml.numpy.mean((block_flat - reconstructed) ** 2)
+    #print("LOSS VAL :", loss_val)
+
+    return loss_val
 
 def mse_autoencoder_block(block_flat, probs):
     reconstructed = reconstruccion_bloque_decoder(probs)
@@ -140,8 +141,11 @@ def optimizar_autoencoder_bloque(alpha, betta, dev, dev_dec, n_qubits, opt_enc, 
 
     # Paso de optimización
 
-    params_enc = opt_enc.step(lambda p: loss_fn(p, params_dec), params_enc)
-    params_dec = opt_dec.step(lambda p: loss_fn(params_enc, p), params_dec)
+    params_enc_old = params_enc.copy()
+    params_dec_old = params_dec.copy()
+
+    params_enc = opt_enc.step(lambda p: loss_fn(p, params_dec_old), params_enc)
+    params_dec = opt_dec.step(lambda p: loss_fn(params_enc_old, p), params_dec)
 
     return params_enc, params_dec
 

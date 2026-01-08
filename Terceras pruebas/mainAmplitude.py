@@ -11,6 +11,8 @@ import funciones_estado
 
 # ------------------ Configuración variables iniciales ------------------
 
+
+#DATOS SATELITALES
 dataset = "Artificiales experimentos" #Es para el log
 num_de_imagenes = 50 #Es para el log
 
@@ -19,7 +21,12 @@ num_de_imagenes = 50 #Es para el log
 # */*: Todas (Artificiales y Naturales)
 files = glob.glob("SAR_Dataset/0/4.png")
 
+
+
+# DATOS MNIST
 files = glob.glob("C:\\Users\\jbelio\\.cache\\kagglehub\\datasets\\ben519\\mnist-as-png\\versions\\1\\mnist-png\\train\\0\\train_image_1.png")
+
+
 
 img_save_path = "Resultados/original_resized.png" # Ruta para guardar la imagen redimensionada en base a la original
 compressed_save_path = "Resultados/compressed_output.png" # Ruta para guardar la imagen comprimida
@@ -51,24 +58,27 @@ optimizer_name = "Adam" # Nombre del optimizador a usar
 if optimizer_name == "Adam":
     opt_enc = qml.AdamOptimizer(stepsize=tasa_de_aprendizaje)
     opt_dec = qml.AdamOptimizer(stepsize=tasa_de_aprendizaje)
+elif optimizer_name == "GradientDescent":
+    opt_enc = qml.GradientDescentOptimizer(stepsize=tasa_de_aprendizaje)
+    opt_dec = qml.GradientDescentOptimizer(stepsize=tasa_de_aprendizaje)
 
 
 tecnica_de_encoding_ansatz = {
     "Amplitude": 1,
     "RotacionesY": 1,
-    "CNOT": 1,
-    "RotacionesY": 1,
-    "CNOT": 1,
+    "CNOT": 1
 } # Técnica de encoding a usar en el circuito cuántico, puede ser una lista de técnicas para aplicar secuencialmente
 
 tecnica_de_decoding_ansatz = {
     "Angle": 1,
     "RotacionesY": 1,
-    "CNOT": 1,
-    "RotacionesY": 1,
-    "CNOT": 1,
-}
-num_layers = 2 # Número de capas para los parámetros del encoder y decoder
+    "CNOT": 1
+} # Técnica de decoding a usar en el circuito cuántico.
+# ¡¡IMPORTANTE!! Este codigo utilizad de embedding amplitude, el cual hacer la compresion. 
+# Luego por ello el decoder no va a ser el inverso del decoder para nada.
+
+
+#num_layers = 2 # Número de capas para los parámetros del encoder y decoder
 
 # CHECKEAR EL ENTRENAMIENTO DEL ROTACIONAL EN EL DECODER
 mse_por_bloque = [] # Lista para almacenar los MSE por bloque durante la reconstrucción
@@ -93,7 +103,7 @@ dev_dec = qml.device("default.qubit", wires=n_qubits_dec) # Dispositivo cuántic
 params_dec = {}
 params_por_bloque = {}
 
-params_dec, params_por_bloque = inicializa_params.inic_params(params_dec, block_size, resize_dim, n_qubits_dec, n_qubits, num_layers)
+params_dec, params_por_bloque = inicializa_params.inic_params(block_size, resize_dim, n_qubits_dec, n_qubits)
 
 
 # ------------------ Inicializar parámetros por bloque ------------------
@@ -135,6 +145,8 @@ for f in files:
                 state, block_norm, block_sum = funciones_estado.imagen_flatten(
                     img_array, i, j, block_size
                 )
+
+                print("Block sum:", block_sum)
 
                 params_enc = params_por_bloque[(i, j)]
                 params_dec_block = params_dec[(i, j)]
@@ -178,15 +190,14 @@ for f in files:
         for j in range(0, resize_dim[1], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (columnas)
             state, block_norm, block_sum = funciones_estado.imagen_flatten(img_array, i, j, block_size)
 
-            
+
             params_enc = params_por_bloque[(i, j)]  
             params_dec_block = params_dec[(i, j)]
 
             z_vals = funciones_estado.medicion(dev, n_qubits, state, params_enc, tecnica_de_encoding_ansatz)
 
-
             compressed_img_small[i//2:(i//2)+2,
-                                j//2:(j//2)+2] = funciones_estado.escalar_generar_imagen_mediciones_encoder(z_vals)
+                                j//2:(j//2)+2] = funciones_estado.escalar_generar_imagen_mediciones_encoder(z_vals, block_sum)
             
             
             # Decoder 
