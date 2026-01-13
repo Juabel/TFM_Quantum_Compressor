@@ -170,27 +170,6 @@ def create_circuit_module_dec(dev_dec, n_qubits_dec, state, params_rot, tecnica_
 
 
 
-
-def create_circuit_meas_decoder(dev_dec, n_qubits_dec, state, params_rot, tecnica_de_decoding_ansatz):
-    @qml.qnode(dev_dec)
-    def circuit_meas_decoder(state, params_rot, tecnica_de_decoding_ansatz):
-
-        for module_name, num_layers in tecnica_de_decoding_ansatz.items():
-
-            module_fn = CIRCUIT_MODULES[module_name]
-
-            for _ in range(num_layers):
-                module_fn(state, params_rot, n_qubits_dec)
-
-        # Devolver directamente el vector de probs (16 valores)
-        return qml.probs(wires=range(n_qubits_dec))
-    
-
-    return circuit_meas_decoder(state, params_rot, tecnica_de_decoding_ansatz)
-
-
-
-
 def create_circuit_meas(dev, n_qubits, tecnica_de_encoding_ansatz):
     @qml.qnode(dev)
     def circuit_meas(state, params_rot):

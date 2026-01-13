@@ -50,8 +50,8 @@ log_ratios = [] # Lista para almacenar los ratios de compresión de cada imagen 
 log_tamaño_original = [] # Lista para almacenar los tamaños originales de las imágenes
 log_tamaño_comprimido = [] # Lista para almacenar los tamaños comprimidos de las imágenes
 
-num_iteraciones_global = 2 # Número de iteraciones globales para el entrenamiento, es decir, cuántas veces se optimizan todos los bloques de la imagen
-num_iteraciones_bloque = 20  # Número de iteraciones locales para optimizar cada bloque individualmente
+num_iteraciones_global = 5 # Número de iteraciones globales para el entrenamiento, es decir, cuántas veces se optimizan todos los bloques de la imagen
+num_iteraciones_bloque = 10  # Número de iteraciones locales para optimizar cada bloque individualmente
 
 
 optimizer_name = "Adam" # Nombre del optimizador a usar
@@ -159,7 +159,7 @@ for f in files:
                     )
 
                     # ---- MEDICIÓN ----
-                    z_vals = funciones_estado.medicion(dev, n_qubits, state, params_enc, tecnica_de_encoding_ansatz)
+                    z_vals = funciones_estado.medicion(dev, n_qubits, state, params_enc, tecnica_de_encoding_ansatz, block_sum)
                     z_vals_decoder = funciones_estado.medicion_decoder(dev_dec, n_qubits, z_vals, params_dec_block, tecnica_de_decoding_ansatz, block_sum)
 
 
@@ -167,7 +167,6 @@ for f in files:
                     mse = funciones_estado.loss_autoencoder_block(alpha, betta, block_norm, z_vals_decoder)
 
                     ssim_val = funciones_estado.ssim_autoencoder_block(block_norm, z_vals_decoder)
-                    
                     print(f" Iteración {iter+1}/{num_iteraciones_bloque} - MSE: {mse:.6f}, SSIM: {ssim_val:.6f}")
                     
                     train_mse_history.append(mse)
@@ -176,8 +175,8 @@ for f in files:
 
                     global_iter += 1
 
-                    if iter == 3 and ssim_val > 0.99:
-                        print("SSIM muy alto, saliendo del entrenamiento local del bloque.")
+                    if iter == 3 and mse < 1e-6:
+                        print("MSE muy bajo, saliendo del entrenamiento local del bloque.")
                         break
 
                 params_por_bloque[(i, j)] = params_enc
@@ -194,8 +193,8 @@ for f in files:
             params_enc = params_por_bloque[(i, j)]  
             params_dec_block = params_dec[(i, j)]
 
-            z_vals = funciones_estado.medicion(dev, n_qubits, state, params_enc, tecnica_de_encoding_ansatz)
-
+            z_vals = funciones_estado.medicion(dev, n_qubits, state, params_enc, tecnica_de_encoding_ansatz, block_sum)
+            
             compressed_img_small[i//2:(i//2)+2,
                                 j//2:(j//2)+2] = funciones_estado.escalar_generar_imagen_mediciones_encoder(z_vals, block_sum)
             
@@ -204,17 +203,15 @@ for f in files:
 
             z_vals_decoder = funciones_estado.medicion_decoder(dev_dec, n_qubits, z_vals, params_dec_block, tecnica_de_decoding_ansatz, block_sum)
             
-            reconstructed_img_small[i:(i+block_size),
+            reconstructed_img_small[i:(i+block_size), 
                                     j:(j+block_size)] = funciones_estado.escalar_generar_imagen_mediciones_decoder(z_vals_decoder)
+
 
             mse = funciones_estado.mse_autoencoder_block(
                         block_norm, z_vals_decoder
                     )
-            ssim_val = funciones_estado.ssim_autoencoder_block(
-                        block_norm, z_vals_decoder
-                    )
-
-
+            ssim_val = funciones_estado.ssim_autoencoder_block(block_norm, z_vals_decoder)
+            
             print(f"\nMSE: {mse:.6f}, SSIM: {ssim_val:.6f}")
 
 

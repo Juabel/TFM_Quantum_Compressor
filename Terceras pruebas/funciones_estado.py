@@ -7,9 +7,13 @@ import os
 
 def imagen_flatten(img_array, i , j, block_size):
     block = img_array[i:i+block_size, j:j+block_size].astype(np.float64)
+
     block_norm = block / 255.0  # valores en [0,1]
 
-    block_sum = np.sum(block_norm)/ (block_size * block_size)  # Intensidad promedio del bloque original
+    block_sum = np.sum(block_norm) / (block_size * block_size)  # Intensidad promedio del bloque original
+    # Escalar promedio a [0,2]
+    scaled_block_sum = block_sum * 2  # 0=negro, 2=blanco
+
 
     block_flat = block_norm.flatten(order='F')
 
@@ -23,7 +27,7 @@ def imagen_flatten(img_array, i , j, block_size):
         # Normalización L2
         block_flat_l2 = block_flat / norm_l2
 
-    return block_flat_l2, block_norm, block_sum
+    return block_flat_l2, block_norm, scaled_block_sum
 # block_flat_l2 = El bloque normalizado en 255 y luego en L2 para usar en el encoder
 # block_norm = Bloque normalizado en 255 luego usado para la comparacion (esto a revisar)
 # block_sum = Intensidad bloque original que luego uso en decoder (a revisar)
@@ -35,33 +39,34 @@ def fidelidad_optima_dec(first_state, dev_dec, n_qubits, state, params_rot, tecn
     fidelidad = qml.math.abs(overlap)**2 # Calcular la fidelidad final del bloque
     return fidelidad
 
-def medicion(dev, n_qubits, state, params_rot, tecnica_de_encoding_ansatz):
+def medicion(dev, n_qubits, state, params_rot, tecnica_de_encoding_ansatz, block_sum):
     import circuito
     circuit = circuito.create_circuit_meas(dev, n_qubits, tecnica_de_encoding_ansatz)
     z_vals = circuit(state, params_rot)
-    return z_vals
+
+    z_vals_scaled = np.array([((-z + 1)/2 * block_sum) for z in z_vals])
+    
+    # Limitar a 0-1 por seguridad (opcional, si block_sum puede ser >1)
+    z_vals_scaled = np.clip(z_vals_scaled, 0, 1)
+
+    # Convertir a rango [0,255] y limitar
+    z_vals_255 = np.clip(z_vals_scaled * 255, 0, 255)
+    return z_vals_255
 
 def medicion_decoder(dev_dec, n_qubits, z_vals, params_dec, tecnica_de_decoding_ansatz, block_sum):
     import circuito
-    z_vals_scaled = np.array([((-z + 1)/2 * block_sum) for z in z_vals])
-
-    #return circuito.create_circuit_meas_decoder(dev_dec, n_qubits, z_vals, params_dec, tecnica_de_decoding_ansatz) # Ejecutar el circuito con los parámetros optimizados
-    probs = circuito.create_circuit_module_dec(dev_dec, n_qubits, z_vals_scaled, params_dec, tecnica_de_decoding_ansatz) 
-    return probs * block_sum
+    probs = circuito.create_circuit_module_dec(dev_dec, n_qubits, z_vals, params_dec, tecnica_de_decoding_ansatz) 
+    # Multiplicar por block_sum y limitar a 1
+    probs = np.clip(probs * block_sum, 0, 1)
+    return probs
 
 def escalar_generar_imagen_mediciones_encoder(probs, block_sum):
-    img = reconstruccion_bloque_encoder(probs)  # forma original, ej: 2x2 o 4x4
-
-    # Escalar [-1,1] → [0,255]
-    img_255 = ((-img + 1)/2 * block_sum).astype(np.uint8)
-
-    return img_255 * 255
-
+    return reconstruccion_bloque_encoder(probs)  # forma original, ej: 2x2 o 4x4
 
 def escalar_generar_imagen_mediciones_decoder(probs):
     img = reconstruccion_bloque_decoder(probs)
     # Pasar a 0-255 y convertir a uint8
-    img_255 = (img * 255).astype(np.uint8)
+    img_255 = np.clip(img * 255, 0, 255).astype(np.uint8)
 
     return img_255
 
@@ -85,12 +90,12 @@ def mse_autoencoder_block(block_flat, probs):
     return mse
 
 def reconstruccion_bloque_encoder(z_vals):
-    # z_vals: (4,)
+    # z_vals: (2,)
     return qml.numpy.reshape(z_vals, (2, 2), order='F')
 
 
 def reconstruccion_bloque_decoder(z_vals):
-    # z_vals: (16,)
+    # z_vals: (4,)
     return qml.numpy.reshape(z_vals, (4, 4), order='F')
 
 def ssim_autoencoder_block(block_flat, z_vals_decoder):
@@ -125,7 +130,7 @@ def optimizar_autoencoder_bloque(alpha, betta, dev, dev_dec, n_qubits, opt_enc, 
     def loss_fn(p_enc, p_dec):
         # Encoder
         z_vals = medicion(
-            dev, n_qubits, state, p_enc, tecnica_enc
+            dev, n_qubits, state, p_enc, tecnica_enc, block_sum
         )
 
         # Decoder
