@@ -62,15 +62,7 @@ def angle_embedding(state, params_rot, n_q):
     qml.AngleEmbedding(state, wires=range(n_q))
 
 def amplitude_embedding(block_flat, params_rot, n_q):
-    norm = np.linalg.norm(block_flat)
-    
-    if norm == 0:
-        # Bloque completamente negro: no hacemos embedding
-        return np.zeros_like(block_flat)
-    else:
-        # Bloque no negro: hacemos AmplitudeEmbedding
-        qml.AmplitudeEmbedding(block_flat, wires=range(n_q), normalize=True)
-        return block_flat  # opcional, para mantener consistencia
+    qml.AmplitudeEmbedding(block_flat, wires=range(n_q), normalize=True)
 
 def pauliX (state, params_rot, n_q):
     for k in range(n_q):
@@ -152,9 +144,9 @@ CIRCUIT_MODULES = {
 
 
 
-def create_circuit_module_dec(dev_dec, n_qubits_dec, state, params_rot, tecnica_de_decoding_ansatz):
+def create_circuit_module_dec(dev_dec, n_qubits_dec, tecnica_de_decoding_ansatz):
     @qml.qnode(dev_dec)
-    def circuit_decoder(state, params_rot, tecnica_de_decoding_ansatz):
+    def circuit_decoder(state, params_rot):
 
         for module_name, num_layers in tecnica_de_decoding_ansatz.items():
 
@@ -166,7 +158,7 @@ def create_circuit_module_dec(dev_dec, n_qubits_dec, state, params_rot, tecnica_
         # Devolver directamente el vector de probs (16 valores)
         return qml.probs(wires=range(n_qubits_dec))
 
-    return circuit_decoder(state, params_rot, tecnica_de_decoding_ansatz)
+    return circuit_decoder
 
 
 
