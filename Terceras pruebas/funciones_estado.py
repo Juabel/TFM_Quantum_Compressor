@@ -1,6 +1,7 @@
 from skimage.metrics import structural_similarity as ssim
 import pennylane as qml
 import matplotlib.pyplot as plt
+from pennylane import numpy as np
 import os
 
 
@@ -260,4 +261,38 @@ def graficar_MSE(train_iter_history, train_mse_history):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
+
+
+def ordenar_para_amplitude(block_flat):
+    """
+    block_flat: array de 4 pixeles normalizados (2x2 aplastado)
+    Devuelve un vector de amplitudes listo para AmplitudeEmbedding
+    en el orden deseado:
+    |00> = más oscuro
+    |01> = oscuro intermedio
+    |10> = más claro
+    |11> = claro intermedio
+    """
+    # Asegurarnos de que son float
+    block_flat = np.array(block_flat, dtype=float)
+    
+    # Encontrar índices de mínimo y máximo
+    min_idx = np.argmin(block_flat)   # más oscuro
+    max_idx = np.argmax(block_flat)   # más claro
+    
+    # Indices restantes
+    remaining = [i for i in range(4) if i not in [min_idx, max_idx]]
+    
+    # Orden deseado: |00>, |01>, |10>, |11>
+    # |00> -> más oscuro
+    # |01> -> oscuro intermedio
+    # |10> -> más claro
+    # |11> -> claro intermedio
+    state_ordered = np.array([block_flat[min_idx], 
+                              block_flat[remaining[0]], 
+                              block_flat[max_idx], 
+                              block_flat[remaining[1]]])
+    
+    return state_ordered
+
 

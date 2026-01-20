@@ -1,3 +1,4 @@
+from numpy import False_
 import pennylane as qml
 from pennylane import numpy as np
 from PIL import Image
@@ -19,12 +20,12 @@ num_de_imagenes = 50 #Es para el log
 # 0/*: Artificiales
 # 1/*: Naturales
 # */*: Todas (Artificiales y Naturales)
-# files = glob.glob("SAR_Dataset/0/4.png")
+files = glob.glob("SAR_Dataset/0/4.png")
 
 
 
 # DATOS MNIST
-files = glob.glob("C:\\Users\\jbelio\\.cache\\kagglehub\\datasets\\ben519\\mnist-as-png\\versions\\1\\mnist-png\\train\\0\\train_image_1.png")
+#files = glob.glob("C:\\Users\\jbelio\\.cache\\kagglehub\\datasets\\ben519\\mnist-as-png\\versions\\1\\mnist-png\\train\\0\\train_image_1.png")
 
 
 
@@ -35,24 +36,31 @@ ruta_log = "Resultados/log.txt" # Ruta del archivo de log con resultados
 
 tasa_de_aprendizaje = 0.05 # Tasa de aprendizaje para el optimizador
 
-# resize_dim = (400, 400) # Dimensiones para redimensionar la imagen original
-# compressed_dim = (200, 200) # Dimensiones de la imagen comprimida
+output_block_size_height = 2   # Porque tiene 4 Z-vals → 2×2 image
+output_block_size_width = 2 # Porque tiene 4 Z-vals → 2×2 image
 
-resize_dim = (28, 28) # Dimensiones para redimensionar la imagen original
-compressed_dim = (14, 14) # Dimensiones de la imagen comprimida
 
-# block_size = 16 # Tamaño de bloque para dividir la imagen, por ejemplo, bloques de 4x4 píxeles
+
+resize_dim = (400, 400) # Dimensiones para redimensionar la imagen original
+
+# resize_dim = (28, 28) # Dimensiones para redimensionar la imagen original
+
 block_size = 4 # Tamaño de bloque para dividir la imagen, por ejemplo, bloques de 4x4 píxeles
+n_blocks_h = resize_dim[0] // block_size
+n_blocks_w = resize_dim[1] // block_size
+
+
+compressed_dim = (
+    n_blocks_h * output_block_size_height,
+    n_blocks_w * output_block_size_width
+)
+
 
 # output_block_size = 16   # Porque tiene 4 Z-vals → 2×2 image
 
-output_block_size_height = 2   # Porque tiene 4 Z-vals → 2×2 image
-output_block_size_width = 2   # Porque tiene 4 Z-vals → 2×2 image
 
 
 # Dimesiones comprimida
-
-
 compressed_rows = compressed_dim[0]   
 compressed_cols = compressed_dim[1]
 
@@ -75,8 +83,8 @@ log_ratios = [] # Lista para almacenar los ratios de compresión de cada imagen 
 log_tamaño_original = [] # Lista para almacenar los tamaños originales de las imágenes
 log_tamaño_comprimido = [] # Lista para almacenar los tamaños comprimidos de las imágenes
 
-num_iteraciones_global = 1 # Número de iteraciones globales para el entrenamiento, es decir, cuántas veces se optimizan todos los bloques de la imagen
-num_iteraciones_bloque = 10  # Número de iteraciones locales para optimizar cada bloque individualmente
+num_iteraciones_global = 2 # Número de iteraciones globales para el entrenamiento, es decir, cuántas veces se optimizan todos los bloques de la imagen
+num_iteraciones_bloque = 20  # Número de iteraciones locales para optimizar cada bloque individualmente
 
 
 optimizer_name = "Adam" # Nombre del optimizador a usar
@@ -88,17 +96,19 @@ elif optimizer_name == "GradientDescent":
 
 tecnica_de_encoding_ansatz = {
     "Amplitude": 1,
-    "RotacionesY": 1,
-    "CNOT": 1
+    # "RotacionesY": 1,
+    # "CNOT": 1
 } # Técnica de encoding a usar en el circuito cuántico, puede ser una lista de técnicas para aplicar secuencialmente
 
 tecnica_de_decoding_ansatz = {
     "Angle": 1,
-    "RotacionesY": 1,
-    "CNOT": 1
+    # "RotacionesY": 1,
+    # "CNOT": 1
 } # Técnica de decoding a usar en el circuito cuántico.
 # ¡¡IMPORTANTE!! Este codigo utilizad de embedding amplitude, el cual hacer la compresion. 
 # Luego por ello el decoder no va a ser el inverso del decoder para nada.
+
+entrenamiento = False
 
 
 #num_layers = 2 # Número de capas para los parámetros del encoder y decoder
@@ -156,47 +166,49 @@ for f in files:
     img = Image.open(f)
     img_array = np.array(img)
 
-    print("\n=== ENTRENAMIENTO AUTOENCODER ===")
+    if entrenamiento == True:
+        print("\n=== ENTRENAMIENTO AUTOENCODER ===")
 
-    for epoch in range(num_iteraciones_global):
-        print(f"\nEpoch {epoch+1}/{num_iteraciones_global}")
-        bloque_num = 0
-        for i in range(0, resize_dim[0], block_size):
-            for j in range(0, resize_dim[1], block_size):
-                bloque_num+=1
-                print(f"\nBloque {bloque_num}/{(resize_dim[0]*resize_dim[1])/(block_size*block_size)}")
+        for epoch in range(num_iteraciones_global):
+            print(f"\nEpoch {epoch+1}/{num_iteraciones_global}")
+            bloque_num = 0
+            for i in range(0, resize_dim[0], block_size):
+                for j in range(0, resize_dim[1], block_size):
+                    bloque_num+=1
+                    print(f"\nBloque {bloque_num}/{(resize_dim[0]*resize_dim[1])/(block_size*block_size)}")
 
-                state, block_norm, block_sum = funciones_estado.imagen_flatten(
-                    img_array, i, j, block_size
-                )
-
-                for iter in range(num_iteraciones_bloque):
-
-                    # ---- ENTRENAMIENTO ----
-                    params[(i, j)] = funciones_estado.optimizar_autoencoder_bloque(
-                        alpha, betta, opt, params[(i, j)], state, block_norm, circuit_enc, circuit_dec, block_size
+                    state, block_norm, block_sum = funciones_estado.imagen_flatten(
+                        img_array, i, j, block_size
                     )
 
-                    params_enc, params_dec_block = params[(i, j)]
+                    for iter in range(num_iteraciones_bloque):
 
-                    # ---- MEDICIÓN ----
-                    z_vals = funciones_estado.medicion(state, params_enc, circuit_enc)
-                    z_vals_decoder = funciones_estado.medicion_decoder(z_vals, params_dec_block, circuit_dec)
+                        # ---- ENTRENAMIENTO ----
+                        params[(i, j)] = funciones_estado.optimizar_autoencoder_bloque(
+                            alpha, betta, opt, params[(i, j)], state, block_norm, circuit_enc, circuit_dec, block_size
+                        )
+
+                        params_enc, params_dec_block = params[(i, j)]
+
+                        # ---- MEDICIÓN ----
+                        z_vals = funciones_estado.medicion(state, params_enc, circuit_enc)
+                        z_vals_decoder = funciones_estado.medicion_decoder(z_vals, params_dec_block, circuit_dec)
 
 
-                    # ---- EVALUACIÓN (pipeline completo) ----
-                    mse = funciones_estado.loss_autoencoder_block(alpha, betta, block_norm, z_vals_decoder, block_size)
+                        # ---- EVALUACIÓN (pipeline completo) ----
+                        mse = funciones_estado.loss_autoencoder_block(alpha, betta, block_norm, z_vals_decoder, block_size)
 
-                    print(f" Iteración {iter+1}/{num_iteraciones_bloque} - MSE: {mse:.6f}")
-                    
+                        print(f" Iteración {iter+1}/{num_iteraciones_bloque} - MSE: {mse:.6f}")
+
+
+
+                        if iter == 3 and mse < 1e-6:
+                            print("MSE muy bajo, saliendo del entrenamiento local del bloque.")
+                            break
+                    global_iter += 1
                     train_mse_history.append(mse)
                     train_iter_history.append(global_iter)
-
-                    global_iter += 1
-
-                    if iter == 3 and mse < 1e-6:
-                        print("MSE muy bajo, saliendo del entrenamiento local del bloque.")
-                        break
+                        
 
 
     print("\n=== RECONSTRUCCIÓN ===")
@@ -215,8 +227,9 @@ for f in files:
             row_idx = (i // block_size) * output_block_size_height
             col_idx = (j // block_size) * output_block_size_width
 
+            output = funciones_estado.escalar_generar_imagen_mediciones_encoder(z_vals, block_sum, output_block_size_height, output_block_size_width)
             compressed_img_small[row_idx:row_idx+output_block_size_height,
-                             col_idx:col_idx+output_block_size_width] = funciones_estado.escalar_generar_imagen_mediciones_encoder(z_vals, block_sum, output_block_size_height, output_block_size_width)
+                             col_idx:col_idx+output_block_size_width] = output
             
             #NO ME CUADRA
             
