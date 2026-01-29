@@ -1640,3 +1640,993 @@ Tamano original medio: 0.677624 MB
 Tamano comprimido medio: 0.030470 MB
 
 MSE medio global de todas las imagenes: 0.270195
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 200)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 96.25 segundos
+Ratio de compresion: 22.24
+Tamano original medio: 0.677624 MB
+Tamano comprimido medio: 0.030470 MB
+
+MSE medio global de todas las imagenes: 0.270195
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 200)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 278.33 segundos
+Ratio de compresion: 22.24
+Tamano original medio: 0.677624 MB
+Tamano comprimido medio: 0.030470 MB
+
+MSE medio global de todas las imagenes: 0.270195
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 200)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 384.31 segundos
+Ratio de compresion: 3.61
+Tamano original medio: 0.117685 MB
+Tamano comprimido medio: 0.032560 MB
+
+MSE medio global de todas las imagenes: 0.269226
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 400)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 225.60 segundos
+Ratio de compresion: 1.72
+Tamano original medio: 0.117685 MB
+Tamano comprimido medio: 0.068271 MB
+
+MSE medio global de todas las imagenes: 0.270682
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 200)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 68.79 segundos
+Ratio de compresion: 3.77
+Tamano original medio: 0.117685 MB
+Tamano comprimido medio: 0.031195 MB
+
+MSE medio global de todas las imagenes: 0.270848
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 400)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 209.64 segundos
+Ratio de compresion: 1.79
+Tamano original medio: 0.117685 MB
+Tamano comprimido medio: 0.065737 MB
+
+MSE medio global de todas las imagenes: 0.272727
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 126.50 segundos
+Ratio de compresion: 1.44
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000205 MB
+
+MSE medio global de todas las imagenes: 0.112169
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 269.04 segundos
+Ratio de compresion: 1.42
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000208 MB
+
+MSE medio global de todas las imagenes: 0.111036
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 101.85 segundos
+Ratio de compresion: 1.40
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000211 MB
+
+MSE medio global de todas las imagenes: 0.110340
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 276.83 segundos
+Ratio de compresion: 1.43
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000207 MB
+
+MSE medio global de todas las imagenes: 0.109889
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 28.32 segundos
+Ratio de compresion: 1.43
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000207 MB
+
+MSE medio global de todas las imagenes: 0.147011
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 27.26 segundos
+Ratio de compresion: 1.49
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000198 MB
+
+MSE medio global de todas las imagenes: 0.154552
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 39.36 segundos
+Ratio de compresion: 1.42
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000209 MB
+
+MSE medio global de todas las imagenes: 0.142909
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 400)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 156.15 segundos
+Ratio de compresion: 1.72
+Tamano original medio: 0.117685 MB
+Tamano comprimido medio: 0.068271 MB
+
+MSE medio global de todas las imagenes: 0.270682
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 507.86 segundos
+Ratio de compresion: 1.39
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000213 MB
+
+MSE medio global de todas las imagenes: 0.286087
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 175.00 segundos
+Ratio de compresion: 1.39
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000213 MB
+
+MSE medio global de todas las imagenes: 0.286087
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 951.17 segundos
+Ratio de compresion: 1.39
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000213 MB
+
+MSE medio global de todas las imagenes: 0.286087
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 536.59 segundos
+Ratio de compresion: 1.39
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000213 MB
+
+MSE medio global de todas las imagenes: 0.286087
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 1421.51 segundos
+Ratio de compresion: 1.39
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000213 MB
+
+MSE medio global de todas las imagenes: 0.286087
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 272.91 segundos
+Ratio de compresion: 1.39
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000213 MB
+
+MSE medio global de todas las imagenes: 0.269156
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 4.82 segundos
+Ratio de compresion: 1.67
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000177 MB
+
+MSE medio global de todas las imagenes: 0.161730
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 10.22 segundos
+Ratio de compresion: 1.39
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000213 MB
+
+MSE medio global de todas las imagenes: 0.269156
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 59.13 segundos
+Ratio de compresion: 1.39
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000213 MB
+
+MSE medio global de todas las imagenes: 0.291748
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 30.36 segundos
+Ratio de compresion: 1.39
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000213 MB
+
+MSE medio global de todas las imagenes: 0.269156
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 35.02 segundos
+Ratio de compresion: 1.67
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000177 MB
+
+MSE medio global de todas las imagenes: 0.155949
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 12.56 segundos
+Ratio de compresion: 1.67
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000177 MB
+
+MSE medio global de todas las imagenes: 0.155949
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (400, 400)
+Compressed dimension: (200, 400)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 170.86 segundos
+Ratio de compresion: 1.72
+Tamano original medio: 0.117685 MB
+Tamano comprimido medio: 0.068271 MB
+
+MSE medio global de todas las imagenes: 0.171885
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 23.35 segundos
+Ratio de compresion: 1.43
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000207 MB
+
+MSE medio global de todas las imagenes: 0.125524
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 95.46 segundos
+Ratio de compresion: 1.48
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000199 MB
+
+MSE medio global de todas las imagenes: 0.108980
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 65.72 segundos
+Ratio de compresion: 1.66
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000178 MB
+
+MSE medio global de todas las imagenes: 0.107868
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 20.63 segundos
+Ratio de compresion: 1.61
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000184 MB
+
+MSE medio global de todas las imagenes: 0.240601
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 19.68 segundos
+Ratio de compresion: 1.61
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000183 MB
+
+MSE medio global de todas las imagenes: 0.241807
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 7.36 segundos
+Ratio de compresion: 1.63
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000181 MB
+
+MSE medio global de todas las imagenes: 0.265457
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 61.80 segundos
+Ratio de compresion: 1.47
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000201 MB
+
+MSE medio global de todas las imagenes: 0.253380
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 29.94 segundos
+Ratio de compresion: 1.42
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000208 MB
+
+MSE medio global de todas las imagenes: 0.278275
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 1157.31 segundos
+Ratio de compresion: 1.38
+Tamano original medio: 0.000296 MB
+Tamano comprimido medio: 0.000215 MB
+
+MSE medio global de todas las imagenes: 0.287819
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 81.67 segundos
+Ratio de compresion: 1.53
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000195 MB
+
+MSE medio global de todas las imagenes: 0.231996
+SSIM medio de las imagenes: -0.091119
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 101.72 segundos
+Ratio de compresion: 1.54
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000194 MB
+
+MSE medio global de todas las imagenes: 0.229003
+SSIM medio de las imagenes: -0.056011
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 27.54 segundos
+Ratio de compresion: 1.54
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000194 MB
+
+MSE medio global de todas las imagenes: 0.229766
+SSIM medio de las imagenes: -0.037310
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 34.47 segundos
+Ratio de compresion: 1.53
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000195 MB
+
+MSE medio global de todas las imagenes: 0.234095
+SSIM medio de las imagenes: -0.229298
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 213.06 segundos
+Ratio de compresion: 1.54
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000194 MB
+
+MSE medio global de todas las imagenes: 0.217955
+SSIM medio de las imagenes: -0.215749
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 30.99 segundos
+Ratio de compresion: 1.56
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000191 MB
+
+MSE medio global de todas las imagenes: 0.238449
+SSIM medio de las imagenes: -0.004579
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 34.08 segundos
+Ratio de compresion: 1.54
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000193 MB
+
+MSE medio global de todas las imagenes: 0.243848
+SSIM medio de las imagenes: -0.036174
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 43.74 segundos
+Ratio de compresion: 1.53
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000195 MB
+
+MSE medio global de todas las imagenes: 0.139943
+SSIM medio de las imagenes: 0.527916
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 42.63 segundos
+Ratio de compresion: 1.58
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000189 MB
+
+MSE medio global de todas las imagenes: 0.135612
+SSIM medio de las imagenes: 0.558843
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 48.84 segundos
+Ratio de compresion: 1.47
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000202 MB
+
+MSE medio global de todas las imagenes: 0.137265
+SSIM medio de las imagenes: 0.564750
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 52.68 segundos
+Ratio de compresion: 1.30
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000229 MB
+
+MSE medio global de todas las imagenes: 0.063314
+SSIM medio de las imagenes: 0.711576
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 29.48 segundos
+Ratio de compresion: 1.33
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000223 MB
+
+MSE medio global de todas las imagenes: 0.064713
+SSIM medio de las imagenes: 0.739973
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 81.50 segundos
+Ratio de compresion: 1.33
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000223 MB
+
+MSE medio global de todas las imagenes: 0.065604
+SSIM medio de las imagenes: 0.663264
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 239.67 segundos
+Ratio de compresion: 1.40
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000213 MB
+
+MSE medio global de todas las imagenes: 0.074211
+SSIM medio de las imagenes: 0.715747
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 65.74 segundos
+Ratio de compresion: 1.34
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000222 MB
+
+MSE medio global de todas las imagenes: 0.078510
+SSIM medio de las imagenes: 0.680123
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1, 'RotacionesY': 1, 'CNOT': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 442.15 segundos
+Ratio de compresion: 1.50
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000198 MB
+
+MSE medio global de todas las imagenes: 0.137947
+SSIM medio de las imagenes: 0.563963
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 179.33 segundos
+Ratio de compresion: 1.46
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000203 MB
+
+MSE medio global de todas las imagenes: 0.248598
+SSIM medio de las imagenes: 0.339146
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 108.68 segundos
+Ratio de compresion: 1.46
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000203 MB
+
+MSE medio global de todas las imagenes: 0.248598
+SSIM medio de las imagenes: 0.339146

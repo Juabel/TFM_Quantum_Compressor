@@ -1,161 +1,156 @@
-from skimage.metrics import structural_similarity as ssim
-import pennylane as qml
+import torch.nn.functional as F
+from torchmetrics.image.ssim import StructuralSimilarityIndexMeasure
 import matplotlib.pyplot as plt
-from pennylane import numpy as np
 import os
+import torch
 
 
-def imagen_flatten(img_array, i, j, block_size):
-    block = img_array[i:i+block_size, j:j+block_size].astype(qml.numpy.float64)
+# Inicializamos los módulos (reutilizables)
+
+def imagen_flatten(img_array, i, j, block_size, device):
+    block = torch.tensor(img_array[i:i+block_size, j:j+block_size],
+                         dtype=torch.float32, device=device)
 
     block_norm = block / 255.0  # [0,1]
 
-    block_sum = qml.numpy.mean(block_norm)
-    scaled_block_sum = block_sum * 2
+    block_sum = block_norm.mean()
 
-    block_flat = block_norm.flatten(order='F')
+    scaled_block_sum = block_sum * 2  # ahora valores <1 → baja intensidad, >1 → alta intensidad
+
+
+    block_flat = block_norm.T.reshape(-1)
 
     # --- PROTECCIÓN CASO VECTOR CERO ---
-    norm = qml.numpy.linalg.norm(block_flat)
+    norm = block_flat.norm()
 
-    block_flat = qml.numpy.where(
-        norm < 1e-12,
-        qml.numpy.ones_like(block_flat) / qml.numpy.sqrt(block_flat.size),
-        block_flat
-    )
+    if norm < 1e-12:
+        block_flat = torch.ones_like(block_flat, device=device) / torch.sqrt(torch.tensor(block_flat.numel(), dtype=torch.float32))
 
-    return block_flat, block_norm, scaled_block_sum
+    scaled_block_sum_torch = scaled_block_sum.detach().to(device)
+
+    return block_flat, block_norm, scaled_block_sum_torch
+    # return block_flat, block_norm, scaled_block_sum
 
 # block_flat = El bloque normalizado en 255 para usar en el encoder
 # block_norm = Bloque normalizado en 255 luego usado para la comparacion (esto a revisar)
 # block_sum = Intensidad bloque original que luego uso en decoder (a revisar)
 
-def fidelidad_optima_dec(first_state, dev_dec, n_qubits, state, params_rot, tecnica_de_decoding_ansatz):
-    import circuito
-    final_state = circuito.create_circuit_module_dec(dev_dec, n_qubits, state, params_rot, tecnica_de_decoding_ansatz)
-    overlap = qml.math.vdot(first_state, final_state) # Calcular el solapamiento entre el estado inicial y el final
-    fidelidad = qml.math.abs(overlap)**2 # Calcular la fidelidad final del bloque
-    return fidelidad
-
 def medicion(state, params_encoder, circuit_enc):
-    z_vals = circuit_enc(state, params_encoder)  # ← SIN np.array
+    z_vals_list = circuit_enc(state, params_encoder)  # ← SIN np.array
+    z_vals = torch.stack(z_vals_list)
+
     return z_vals
 
 def medicion_decoder(z_vals, params_dec, circuit_dec):
-    probs = circuit_dec(z_vals, params_dec)
-    # Multiplicar por block_sum y limitar a 1
+
+    z_vals_tensor = z_vals.flatten()
+    probs_list = circuit_dec(z_vals_tensor, params_dec)
+    probs = torch.stack(probs_list)
+
     return probs
 
 def escalar_generar_imagen_mediciones_encoder(probs, block_sum, output_block_size_height, output_block_size_width):
     return reconstruccion_bloque_encoder(probs, block_sum, output_block_size_height, output_block_size_width)  # forma original, ej: 2x2 o 4x4
 
 def escalar_generar_imagen_mediciones_decoder(probs, block_sum, block_size):
-    probs = qml.numpy.clip(probs * block_sum, 0, 1)
+    if not torch.is_tensor(block_sum):
+        block_sum = torch.tensor(
+            block_sum, dtype=probs.dtype, device=probs.device
+        )
+    # Reconstrucción del bloque
     img = reconstruccion_bloque_decoder(probs, block_size)
-    # Pasar a 0-255 y convertir a uint8
-    img_255 = qml.numpy.clip(img * 255, 0, 255).astype(qml.numpy.uint8)
 
-    return img_255
+    # Pasar a [0,255]
+    img_255 = img * 255.0
+
+    # ⚠️ SOLO para visualización (rompe gradiente)
+
+
+
+    img_255_uint8 = img_255.to(torch.uint8)
+    img_255_uint8 = img_255_uint8 * block_sum
+    return img_255_uint8
+
 
 
 
 def loss_autoencoder_block(alpha, betta, block_norm, probs, block_size):
-    #MSE
-   
-    reconstructed = reconstruccion_bloque_decoder(probs, block_size)
+    # Reconstrucción
 
-    loss_val = alpha * qml.numpy.mean((block_norm - reconstructed) ** 2)
-    #print("LOSS VAL :", loss_val)
+    reconstructed = reconstruccion_bloque_decoder(probs, block_size).to(dtype=block_norm.dtype)
+    # Añadimos batch y canal
+    reconstructed_ = reconstructed.unsqueeze(0).unsqueeze(0)
+    block_norm_ = block_norm.unsqueeze(0).unsqueeze(0)
+
+
+
+    # --- MSE diferenciable ---
+    mse_val = F.mse_loss(reconstructed_, block_norm_)
+
+    # --- SSIM diferenciable ---
+    # ssim_fn = StructuralSimilarityIndexMeasure(data_range=1.0).to(reconstructed_.device)
+    # ssim_val = ssim_fn(reconstructed_, block_norm_)
+
+    # --- Loss conjunta ---
+    loss_val = alpha * mse_val
+    # loss_val = alpha * mse_val + betta * (1 - ssim_val)
+
     return loss_val
 
-def mse_autoencoder_block(block_norm, probs):
-    reconstructed = reconstruccion_bloque_decoder(probs)
-
-    mse = qml.numpy.mean((block_norm - reconstructed) ** 2)
-
-    return mse
-
 def reconstruccion_bloque_encoder(z_vals, block_sum, output_block_size_height, output_block_size_width):
-    z_vals = qml.numpy.array(z_vals)  # <<< convierte la lista a array
+
+
+    if not torch.is_tensor(block_sum):
+        block_sum = torch.tensor(block_sum, dtype=z_vals.dtype)
+
+
+    z_vals = torch.tensor(z_vals, dtype=torch.float32)  # <<< convierte la lista a tensor
 
     # z_vals: (2,)
     z_vals_scaled = (1 - z_vals) / 2
-    z_vals_scaled = qml.numpy.clip(z_vals_scaled, 0, 1)
+    z_vals255 = z_vals_scaled * 255.0
 
-    z_vals_scaled = z_vals_scaled * block_sum    
-    # Convertir a rango [0,255] y limitar
-    z_vals_255 = qml.numpy.clip(z_vals_scaled * 255, 0, 255)
+    z_vals_scaled_255 = z_vals255 * block_sum
 
-    return qml.numpy.reshape(z_vals_255, (output_block_size_height, output_block_size_width), order='F')
-    #return qml.numpy.reshape(z_vals, (2, 2), order='F')
 
+    # return qml.numpy.reshape(z_vals_255, (output_block_size_height, output_block_size_width), order='F')
+    return z_vals_scaled_255.reshape(output_block_size_height, output_block_size_width)
 
 def reconstruccion_bloque_decoder(z_vals, block_size):
     # z_vals: (4,)
-    return qml.numpy.reshape(z_vals, (block_size, block_size), order='F')
+    # return z_vals.reshape(block_size, block_size)
+    z_vals = (1 - z_vals) / 2  # Escalado a [0,1]
+
+    return z_vals.reshape(block_size, block_size).T
     #return qml.numpy.reshape(z_vals, (4, 4), order='F')
 
-def ssim_autoencoder_block(block_flat, z_vals_decoder, block_size):
-
-    reconstructed = reconstruccion_bloque_decoder(z_vals_decoder, block_size)
-
-    data_range = 1.0  # ambos están en [0,1]
-
-    return ssim(
-        block_flat,
-        reconstructed,
-        data_range=data_range,
-        win_size=3
-    )
-
-
-def ssim_approx(original, reconstructed):
-    C1 = 1e-4
-    C2 = 9e-4
-    
-    mu_x = qml.numpy.mean(original)
-    mu_y = qml.numpy.mean(reconstructed)
-    sigma_x = qml.numpy.var(original)
-    sigma_y = qml.numpy.var(reconstructed)
-    sigma_xy = qml.numpy.mean((original - mu_x) * (reconstructed - mu_y))
-    
-    ssim_val = ((2*mu_x*mu_y + C1)*(2*sigma_xy + C2)) / ((mu_x**2 + mu_y**2 + C1)*(sigma_x + sigma_y + C2))
-    return ssim_val
 
 def optimizar_autoencoder_bloque(alpha, betta, opt, params, state, block_norm, circuit_enc, circuit_dec, block_size):
 
+    opt.zero_grad()
+
     params_enc, params_dec = params
+    # ---------- Encoder ----------
+    z_vals = medicion(state, params_enc, circuit_enc)
 
-    # Concatenar en un único array
-    params_flat = qml.numpy.concatenate([params_enc, params_dec])
+    # ---------- Decoder ----------
+    probs = medicion_decoder(z_vals, params_dec, circuit_dec)
 
-    def loss_fn(p_flat):
-        # Encoder
-        n_enc = len(params_enc)
-        p_enc = p_flat[:n_enc]
-        p_dec = p_flat[n_enc:]
+    # ---------- Loss ----------
+    loss = loss_autoencoder_block(
+        alpha,
+        betta,
+        block_norm,
+        probs,
+        block_size
+    )
 
-        z_vals = medicion(state, p_enc, circuit_enc)
-        # Decoder
-        probs = medicion_decoder(z_vals, p_dec, circuit_dec)
-        #print("PROBS EN OPTIMIZACION :", probs)
+    # ---------- Backprop ---------
 
-        #ESTOS VALORES SON COMO PROBABILIDADES, ASI QUE IGUAL HAY QUE MODIFICARLOS PARA COMPARAR CON IMAGEN ORIGINAL
+    loss.backward()
+    opt.step()
 
-        # Loss
-
-        return loss_autoencoder_block(alpha, betta, block_norm, probs, block_size)
-
-    # Paso de optimización
-
-
-    params_flat = opt.step(loss_fn, params_flat)
-
-        # Separar de nuevo
-    params_enc = params_flat[:len(params_enc)]
-    params_dec = params_flat[len(params_enc):]
-
-    return params_enc, params_dec
+    return (params_enc, params_dec), loss.item()
 
 
 def inicializar_circuitos(dev, dev_dec, n_qubits, tecnica_enc, tecnica_dec):
@@ -164,69 +159,72 @@ def inicializar_circuitos(dev, dev_dec, n_qubits, tecnica_enc, tecnica_dec):
     circuit_dec = circuito.create_circuit_module_dec(dev_dec, n_qubits, tecnica_dec)
     return circuit_enc, circuit_dec
 
-# def graficar(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small, show_values=False):
-#     """
-#     Graficar original, comprimida y reconstruida.
-#     Si show_values=True, se muestran los valores de los pixeles en cada imagen.
-#     """
-#     fig, axs = plt.subplots(1, 3, figsize=(12, 4))
-
-#     images = [img_array, compressed_img_small, reconstructed_img_small]
-#     titles = [
-#         f"Original {resize_dim[0]}x{resize_dim[1]}",
-#         f"Comprimida {compressed_dim[0]}x{compressed_dim[1]}",
-#         f"Reconstruida {resize_dim[0]}x{resize_dim[1]}"
-#     ]
-
-#     for ax, img, title in zip(axs, images, titles):
-#         ax.imshow(img, cmap="gray", interpolation='none')
-#         ax.set_title(title)
-#         ax.axis('on')  # activar ejes para ver coordenadas de los pixeles
-#         ax.set_xticks(np.arange(img.shape[1]))  # ticks x por pixel
-#         ax.set_yticks(np.arange(img.shape[0]))  # ticks y por pixel
-#         ax.set_xticklabels(np.arange(img.shape[1]))
-#         ax.set_yticklabels(np.arange(img.shape[0]))
-#         ax.tick_params(axis='both', which='both', length=0)  # quitar marcas largas
-
-#         if show_values:
-#             # Poner los valores de los píxeles encima
-#             for i in range(img.shape[0]):
-#                 for j in range(img.shape[1]):
-#                     ax.text(j, i, f"{img[i, j]:.0f}",
-#                             ha="center", va="center", color="red", fontsize=8)
-
-#     plt.tight_layout()
-#     plt.show()
-
-
-    #------------------ Gráfica de fidelidades totales ------------------
-    #plt.figure(figsize=(10, 5))
-    #plt.plot(log_fidelidades_total, color='blue')
-    #plt.xlabel("Iteración")
-    #plt.ylabel("Fidelidad")
-    #plt.title("Evolución de la fidelidad durante todo el entrenamiento")
-    #plt.grid(True)
-    #plt.show()
 
 def graficar(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small):
-    plt.figure(figsize=(12, 4)) # Imagen original 
-    plt.subplot(1, 3, 1) 
-    plt.imshow(img_array, cmap="gray") 
-    plt.title(f"Original {resize_dim[0]}x{resize_dim[1]}") 
-    plt.axis("off") 
-    # Imagen comprimida 
-    plt.subplot(1, 3, 2) 
-    plt.imshow(compressed_img_small, cmap="gray") 
-    plt.title(f"Comprimida {compressed_dim[0]}x{compressed_dim[1]}") 
-    plt.axis("off") 
-    # Imagen reconstruida 
-    plt.subplot(1, 3, 3) 
-    plt.imshow(reconstructed_img_small, cmap="gray") 
-    plt.title(f"Reconstruida {resize_dim[0]}x{resize_dim[1]}") 
-    plt.axis("off") 
-    plt.tight_layout() 
+    plt.figure(figsize=(12, 4)) # Imagen original
+    plt.subplot(1, 3, 1)
+    plt.imshow(img_array, cmap="gray")
+    plt.title(f"Original {resize_dim[0]}x{resize_dim[1]}")
+    plt.axis("off")
+    # Imagen comprimida
+    plt.subplot(1, 3, 2)
+    plt.imshow(compressed_img_small, cmap="gray")
+    plt.title(f"Comprimida {compressed_dim[0]}x{compressed_dim[1]}")
+    plt.axis("off")
+    # Imagen reconstruida
+    plt.subplot(1, 3, 3)
+    plt.imshow(reconstructed_img_small, cmap="gray")
+    plt.title(f"Reconstruida {resize_dim[0]}x{resize_dim[1]}")
+    plt.axis("off")
+    plt.tight_layout()
     plt.show()
 
+
+
+def mostrar_imagen_con_bloques(img, titulo, block_size):
+    h, w = img.shape
+
+    plt.imshow(img, cmap="gray")
+    plt.title(titulo)
+    plt.axis("off")
+
+    # Líneas de bloques
+    for x in range(0, w, block_size):
+        plt.axvline(x - 0.5, color="cyan", linewidth=0.8)
+
+    for y in range(0, h, block_size):
+        plt.axhline(y - 0.5, color="cyan", linewidth=0.8)
+
+
+def prueba(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small, block_size):
+    plt.figure(figsize=(12, 4))
+
+    # Original
+    plt.subplot(1, 3, 1)
+    mostrar_imagen_con_bloques(
+        img_array,
+        f"Original {resize_dim[0]}x{resize_dim[1]}",
+        block_size
+    )
+
+    # Comprimida
+    plt.subplot(1, 3, 2)
+    mostrar_imagen_con_bloques(
+        compressed_img_small,
+        f"Comprimida {compressed_dim[0]}x{compressed_dim[1]}",
+        block_size
+    )
+
+    # Reconstruida
+    plt.subplot(1, 3, 3)
+    mostrar_imagen_con_bloques(
+        reconstructed_img_small,
+        f"Reconstruida {resize_dim[0]}x{resize_dim[1]}",
+        block_size
+    )
+
+    plt.tight_layout()
+    plt.show()
 
 
 
@@ -253,46 +251,19 @@ def obtener_tamaño(path):
     return os.path.getsize(path) / (1024 ** 2)
 
 def graficar_MSE(train_iter_history, train_mse_history):
-    plt.figure(figsize=(10, 4))
-    plt.plot(train_iter_history, train_mse_history)
-    plt.xlabel("Iteración de entrenamiento")
+    plt.figure()
+
+    for epoch in range(len(train_mse_history)):
+        plt.plot(
+            train_iter_history[epoch],
+            train_mse_history[epoch],
+            label=f"Epoch {epoch+1}"
+        )
+
+    plt.xlabel("Iteración global")
     plt.ylabel("MSE")
-    plt.title("Convergencia del MSE")
-    plt.grid(True)
-    plt.tight_layout()
+    plt.title("Evolución del MSE por iteraciones globales")
+    plt.legend()
+    plt.grid()
     plt.show()
-
-
-def ordenar_para_amplitude(block_flat):
-    """
-    block_flat: array de 4 pixeles normalizados (2x2 aplastado)
-    Devuelve un vector de amplitudes listo para AmplitudeEmbedding
-    en el orden deseado:
-    |00> = más oscuro
-    |01> = oscuro intermedio
-    |10> = más claro
-    |11> = claro intermedio
-    """
-    # Asegurarnos de que son float
-    block_flat = np.array(block_flat, dtype=float)
-    
-    # Encontrar índices de mínimo y máximo
-    min_idx = np.argmin(block_flat)   # más oscuro
-    max_idx = np.argmax(block_flat)   # más claro
-    
-    # Indices restantes
-    remaining = [i for i in range(4) if i not in [min_idx, max_idx]]
-    
-    # Orden deseado: |00>, |01>, |10>, |11>
-    # |00> -> más oscuro
-    # |01> -> oscuro intermedio
-    # |10> -> más claro
-    # |11> -> claro intermedio
-    state_ordered = np.array([block_flat[min_idx], 
-                              block_flat[remaining[0]], 
-                              block_flat[max_idx], 
-                              block_flat[remaining[1]]])
-    
-    return state_ordered
-
 

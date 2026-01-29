@@ -1,5 +1,5 @@
 import pennylane as qml
-from pennylane import numpy as np
+import torch
 
 
 
@@ -8,7 +8,7 @@ def single_qubit_embedding(state, params_rot, k_qubits=1, rotation_type="RY"):
     qubits = list(range(k_qubits))
     
     # Dividimos el vector de entrada equitativamente
-    chunk_size = int(np.ceil(len(state) / k_qubits))
+    chunk_size = int(torch.ceil(torch.tensor(len(state) / k_qubits, dtype=torch.float32)))
 
     # Recorrer cada qubit
     for qi, q in enumerate(qubits):
@@ -36,7 +36,7 @@ def dense_angle_embedding(state, params_rot, k_qubits=3, rotation_type="RY"):
     qubits = list(range(k_qubits))
     
     # Dividimos el vector de entrada equitativamente
-    chunk_size = int(np.ceil(len(state) / k_qubits))
+    chunk_size = int(torch.ceil(torch.tensor(len(state) / k_qubits, dtype=torch.float32)))
 
     # Recorrer cada qubit
     for qi, q in enumerate(qubits):
@@ -82,7 +82,7 @@ def toffoli_gate(state, params_rot):
     qml.Toffoli(wires=[0, 1, 2])  # Control qubits: 0,1; Target qubit: 2
 
 def rotations_RY(state, params, n_q):
-    params = np.array(params).flatten()  # Asegurarse de que sea un vector plano
+    params = params.flatten()  # Asegurarse de que sea un vector plano
     if len(params) < n_q:
         raise ValueError(f"Se requieren {n_q} parámetros, pero solo hay {len(params)}")
     for k in range(n_q):
@@ -145,7 +145,7 @@ CIRCUIT_MODULES = {
 
 
 def create_circuit_module_dec(dev_dec, n_qubits_dec, tecnica_de_decoding_ansatz):
-    @qml.qnode(dev_dec)
+    @qml.qnode(dev_dec, interface="torch")
     def circuit_decoder(state, params_rot):
 
         for module_name, num_layers in tecnica_de_decoding_ansatz.items():
@@ -156,14 +156,35 @@ def create_circuit_module_dec(dev_dec, n_qubits_dec, tecnica_de_decoding_ansatz)
                 module_fn(state, params_rot, n_qubits_dec)
 
         # Devolver directamente el vector de probs (16 valores)
-        return qml.probs(wires=range(n_qubits_dec))
+        # return qml.probs(wires=range(n_qubits_dec))
+        
+        # --- Medidas personalizadas ---
+        measurements = []
 
+        # Para cada qubit simple: Pauli-Z, Pauli-X, Pauli-Y
+        for q in range(n_qubits_dec):
+            # Z
+            measurements.append(qml.expval(qml.PauliZ(q)))
+            # X
+            measurements.append(qml.expval(qml.PauliX(q)))
+
+        # --- Mediciones combinadas (ejemplo: últimos 2 qubits)
+        if n_qubits_dec > 2:
+            for q in range(n_qubits_dec):
+                # Y
+                measurements.append(qml.expval(qml.PauliY(q)))
+            measurements.append(qml.expval(qml.PauliZ(n_qubits_dec-2) @ qml.PauliZ(n_qubits_dec-1)))
+            measurements.append(qml.expval(qml.PauliX(n_qubits_dec-2) @ qml.PauliX(n_qubits_dec-1)))
+            measurements.append(qml.expval(qml.PauliY(n_qubits_dec-2) @ qml.PauliY(n_qubits_dec-1)))
+            measurements.append(qml.expval(qml.PauliZ(n_qubits_dec-3) @ qml.PauliZ(n_qubits_dec-1)))
+        # Devolver todos concatenados como tensor
+        return measurements
     return circuit_decoder
 
 
 
 def create_circuit_meas(dev, n_qubits, tecnica_de_encoding_ansatz):
-    @qml.qnode(dev)
+    @qml.qnode(dev, interface="torch")
     def circuit_meas(state, params_rot):
         for module_name, num_layers in tecnica_de_encoding_ansatz.items():
 
@@ -173,6 +194,7 @@ def create_circuit_meas(dev, n_qubits, tecnica_de_encoding_ansatz):
                 module_fn(state, params_rot, n_qubits)
 
         return [qml.expval(qml.PauliZ(k)) for k in range(n_qubits)]
+
     return circuit_meas
 
 
