@@ -2630,3 +2630,22 @@ Tamano comprimido medio: 0.000203 MB
 
 MSE medio global de todas las imagenes: 0.248598
 SSIM medio de las imagenes: 0.339146
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 14)
+Tamano de bloques: 4x4
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: {'Amplitude': 1}
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 6.86 segundos
+Ratio de compresion: 1.46
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000203 MB
+
+MSE medio global de todas las imagenes: 0.248598
+SSIM medio de las imagenes: 0.339146
