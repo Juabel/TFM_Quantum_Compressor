@@ -1,6 +1,5 @@
 import pennylane as qml
 import torch
-import math
 
 
 
@@ -89,17 +88,6 @@ def rotations_RY(state, params, n_q):
     for k in range(n_q):
         qml.RY(params[k], wires=k)
 
-def rotations_RY_latent(state, params, n_q):
-    k_latent = math.ceil(math.log2(n_q))
-    params = params.flatten()
-
-    if len(params) < k_latent:
-        raise ValueError(
-            f"Se requieren {k_latent} parámetros, pero solo hay {len(params)}"
-        )
-
-    for k in range(k_latent):
-        qml.RY(params[k], wires=k)
 
 def rotations_RX(state, params, n_q):
     for k in range(n_q):
@@ -132,14 +120,6 @@ def SWAP_gate(state, params, n_q):
 def cnot_layer(state, params_rot, n_q):
     for k in range(n_q - 1):
         qml.CNOT(wires=[k+1, k])
-    
-def cnot_layer_compress(state, params_rot, n_q):
-    k_latent = math.ceil(math.log2(n_q))
-
-    # Los últimos qubits se "pliegan" sobre los primeros k
-    for src in range(k_latent, n_q):
-        tgt = src % k_latent
-        qml.CNOT(wires=[src, tgt])
 
 
 CIRCUIT_MODULES = {
@@ -152,7 +132,6 @@ CIRCUIT_MODULES = {
     "Hadamard": hadamard_all,
     "Toffoli": toffoli_gate,
     "RotacionesY": rotations_RY,
-    "RotacionesY_Compress": rotations_RY_latent,
     "RotacionesX": rotations_RX,
     "RotacionesZ": rotations_RZ,
     "Phase": phase_gate,
@@ -160,48 +139,8 @@ CIRCUIT_MODULES = {
     "T": T_gate,
     "CZ": CZ_gate,
     "CY": CY_gate,
-    "CNOT": cnot_layer,
-    "CNOT_Compress" : cnot_layer_compress
+    "CNOT": cnot_layer
 }
-
-
-def create_circuit_module_dec(dev_dec, n_qubits_dec, tecnica_de_decoding_ansatz):
-    @qml.qnode(dev_dec, interface="torch")
-    def circuit_decoder(state, params_rot):
-
-        for module_name, num_layers in tecnica_de_decoding_ansatz.items():
-
-            module_fn = CIRCUIT_MODULES[module_name]
-
-            for _ in range(num_layers):
-                module_fn(state, params_rot, n_qubits_dec)
-
-        # Devolver directamente el vector de probs (16 valores)
-        # return qml.probs(wires=range(n_qubits_dec))
-        
-        # --- Medidas personalizadas ---
-        measurements = []
-
-        # Para cada qubit simple: Pauli-Z, Pauli-X, Pauli-Y
-        for q in range(n_qubits_dec):
-            # Z
-            measurements.append(qml.expval(qml.PauliZ(q)))
-            # X
-            measurements.append(qml.expval(qml.PauliX(q)))
-
-        # --- Mediciones combinadas (ejemplo: últimos 2 qubits)
-        if n_qubits_dec > 2:
-            for q in range(n_qubits_dec):
-                # Y
-                measurements.append(qml.expval(qml.PauliY(q)))
-            measurements.append(qml.expval(qml.PauliZ(n_qubits_dec-2) @ qml.PauliZ(n_qubits_dec-1)))
-            measurements.append(qml.expval(qml.PauliX(n_qubits_dec-2) @ qml.PauliX(n_qubits_dec-1)))
-            measurements.append(qml.expval(qml.PauliY(n_qubits_dec-2) @ qml.PauliY(n_qubits_dec-1)))
-            measurements.append(qml.expval(qml.PauliZ(n_qubits_dec-3) @ qml.PauliZ(n_qubits_dec-1)))
-        # Devolver todos concatenados como tensor
-        return measurements
-    return circuit_decoder
-
 
 
 def create_circuit_meas(dev, n_qubits, tecnica_de_encoding_ansatz):
@@ -228,77 +167,3 @@ def create_circuit_meas(dev, n_qubits, tecnica_de_encoding_ansatz):
   #          module_fn(compressed_features, params_dec, n_qubits_dec)
 #
  #   return qml.state()
-
-def create_autoencoder_recon(dev, n_qubits):
-    @qml.qnode(dev, interface="torch")
-    def autoencoder_recon(state, params_enc, params_dec):
-    # Estado original
-        encoder(state, params_enc, n_qubits)
-        # Decoder
-        qml.StronglyEntanglingLayers(params_dec, wires=range(n_qubits))
-        # Mediciones Pauli Z por qubit
-        expvals = [qml.expval(qml.PauliZ(i)) for i in range(n_qubits)]
-
-        return expvals
-
-    return autoencoder_recon
-
-def create_encoder_trash(dev, n_qubits):
-    @qml.qnode(dev, interface="torch")
-    def encoder_trash(state, params_enc):
-        latents = get_latent_qubits(n_qubits)
-        encoder(state, params_enc, n_qubits)
-
-        trash = list(range(latents, n_qubits))  # Qubits "basura" que se descartan
-        return [qml.expval(qml.PauliZ(w)) for w in trash]
-    
-    return encoder_trash
-
-
-def create_encoder_probs(dev, n_qubits):
-    @qml.qnode(dev, interface="torch")
-    def encoder_probs(state, params):
-
-        # Aplicas el encoder completo
-        encoder(state, params, n_qubits)
-
-        # Qubits latentes
-        num_latent = get_latent_qubits(n_qubits)
-        k_latent = list(range(0, num_latent)) 
-        
-
-        # Probabilidades del espacio latente
-        return [qml.expval(qml.PauliZ(w)) for w in k_latent]
-
-    return encoder_probs
-
-
-def encoder(state, params_enc, n_qubits):
-
-    qml.AngleEmbedding(
-        state,
-        wires=range(n_qubits),
-        rotation="Y"
-    )
-
-    qml.StronglyEntanglingLayers(
-        params_enc,
-        wires=range(n_qubits)
-    )
-
-
-    
-
-def loss_autoencoder(block_norm, pixel_expvals, trash_expvals, lambda_trash):
-
-
-    loss = qml.math.mean((block_norm - pixel_expvals) ** 2)
-
-    trash = (1 - torch.stack(trash_expvals)) / 2
-    trash_loss = qml.math.mean(trash)
-
-    return loss + lambda_trash * trash_loss
-
-
-def get_latent_qubits(n_qubits):
-    return math.ceil(math.log2(n_qubits))

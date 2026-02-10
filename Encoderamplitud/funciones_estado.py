@@ -10,7 +10,8 @@ import pennylane.numpy as qnp
 # Inicializamos los módulos (reutilizables)
 
 def imagen_flatten(img_array, i, j, block_size, device):
-    block = img_array[i:i+block_size, j:j+block_size].to(dtype=torch.float32, device=device)
+    block = torch.tensor(img_array[i:i+block_size, j:j+block_size],
+                         dtype=torch.float32, device=device)
 
     block_norm = block / 255.0  # [0,1]
 
@@ -39,67 +40,48 @@ def imagen_flatten(img_array, i, j, block_size, device):
 def medicion(state, params_encoder, circuit_enc):
     z_vals_list = circuit_enc(state, params_encoder)  # ← SIN np.array
     z_vals = torch.stack(z_vals_list)
+    
+
     return z_vals
-
-def medicion_decoder(z_vals, params_dec, circuit_dec):
-
-    z_vals_tensor = z_vals.flatten()
-    probs_list = circuit_dec(z_vals_tensor, params_dec)
-    probs = torch.stack(probs_list)
-
-    return probs
 
 def escalar_generar_imagen_mediciones_encoder(probs, block_sum, output_block_size_height, output_block_size_width):
     return reconstruccion_bloque_encoder(probs, block_sum, output_block_size_height, output_block_size_width)  # forma original, ej: 2x2 o 4x4
 
-def escalar_generar_imagen_mediciones_decoder(probs, block_sum, block_size):
-    if not torch.is_tensor(block_sum):
-        block_sum = torch.tensor(
-            block_sum, dtype=probs.dtype, device=probs.device
-        )
-    # Reconstrucción del bloque
-    img = reconstruccion_bloque_decoder(probs, block_size)
-
-    # Pasar a [0,255]
-    img_255 = img * 255.0
-
-    # ⚠️ SOLO para visualización (rompe gradiente)
 
 
-
-    img_255_uint8 = img_255.to(torch.uint8)
-    img_255_uint8 = img_255_uint8 * block_sum
-    img_255_uint8 = torch.clamp(img_255_uint8, min=0.0, max=255.0)
-
-    return img_255_uint8
-
-
-def loss_autoencoder_block(alpha, betta, block_norm, probs, block_size):
+def loss_autoencoder_block(block_norm, z_vals, output_block_size_height, output_block_size_width, n_bins=4, eps=1e-12):
     # Reconstrucción
 
-    reconstructed = reconstruccion_bloque_decoder(probs, block_size).to(dtype=block_norm.dtype)
-    # Añadimos batch y canal
-    reconstructed_ = reconstructed.unsqueeze(0).unsqueeze(0)
-    block_norm_ = block_norm.unsqueeze(0).unsqueeze(0)
+    reconstructed = reconstruccion_bloque(z_vals, output_block_size_height, output_block_size_width).to(dtype=block_norm.dtype)
 
+    p = block_norm.flatten()
+    q = reconstructed.flatten()
 
+    # Normalizar como distribución de energía
+    p = p / (p.sum() + eps)
+    q = q / (q.sum() + eps)
 
-    # --- MSE diferenciable ---
-    mse_val = F.mse_loss(reconstructed_, block_norm_)
+    # Momentos
+    mean_p = p.mean()
+    mean_q = q.mean()
 
-    # --- SSIM diferenciable ---
-    # ssim_fn = StructuralSimilarityIndexMeasure(data_range=1.0).to(reconstructed_.device)
-    # ssim_val = ssim_fn(reconstructed_, block_norm_)
+    var_p = p.var()
+    var_q = q.var()
 
-    # --- Loss conjunta ---
-    loss_val = alpha * mse_val
-    # loss_val = alpha * mse_val + betta * (1 - ssim_val)
+    # Entropía (suave)
+    H_p = -(p * torch.log(p + eps)).sum()
+    H_q = -(q * torch.log(q + eps)).sum()
 
-    return loss_val
+    loss = (
+        (mean_p - mean_q) ** 2 +
+        (var_p - var_q) ** 2 +
+        (H_p - H_q) ** 2
+    )
+
+    return loss
+
 
 def reconstruccion_bloque_encoder(z_vals, block_sum, output_block_size_height, output_block_size_width):
-
-
     if not torch.is_tensor(block_sum):
         block_sum = torch.tensor(block_sum, dtype=z_vals.dtype)
 
@@ -112,40 +94,31 @@ def reconstruccion_bloque_encoder(z_vals, block_sum, output_block_size_height, o
 
     z_vals_scaled_255 = z_vals255 * block_sum
 
-    z_vals_scaled_255 = torch.clamp(z_vals_scaled_255, min=0.0, max=255.0)
-
-
 
     # return qml.numpy.reshape(z_vals_255, (output_block_size_height, output_block_size_width), order='F')
     return z_vals_scaled_255.reshape(output_block_size_height, output_block_size_width)
 
-def reconstruccion_bloque_decoder(z_vals, block_size):
+def reconstruccion_bloque(z_vals, output_block_size_height, output_block_size_width):
     # z_vals: (4,)
     # return z_vals.reshape(block_size, block_size)
     z_vals = (1 - z_vals) / 2  # Escalado a [0,1]
 
-    return z_vals.reshape(block_size, block_size).T
+    return z_vals.reshape(output_block_size_height, output_block_size_width).T
     #return qml.numpy.reshape(z_vals, (4, 4), order='F')
 
 
-def optimizar_autoencoder_bloque(alpha, betta, opt, params, state, block_norm, circuit_enc, circuit_dec, block_size):
-
+def optimizar_autoencoder_bloque(opt, params, state, block_norm, circuit_enc, output_block_size_height, output_block_size_width):
     opt.zero_grad()
 
-    params_enc, params_dec = params
+    params_enc = params
     # ---------- Encoder ----------
     z_vals = medicion(state, params_enc, circuit_enc)
 
-    # ---------- Decoder ----------
-    probs = medicion_decoder(z_vals, params_dec, circuit_dec)
-
     # ---------- Loss ----------
     loss = loss_autoencoder_block(
-        alpha,
-        betta,
         block_norm,
-        probs,
-        block_size
+        z_vals,
+        output_block_size_height, output_block_size_width
     )
 
     # ---------- Backprop ---------
@@ -153,34 +126,26 @@ def optimizar_autoencoder_bloque(alpha, betta, opt, params, state, block_norm, c
     loss.backward()
     opt.step()
 
-    return (params_enc, params_dec), loss.item()
+    return (params_enc), loss.item()
 
 
-def inicializar_circuitos(dev, dev_dec, n_qubits, tecnica_enc, tecnica_dec):
+def inicializar_circuitos(dev, n_qubits, tecnica_enc):
     import circuito
     circuit_enc = circuito.create_circuit_meas(dev, n_qubits, tecnica_enc)
-    circuit_dec = circuito.create_circuit_module_dec(dev_dec, n_qubits, tecnica_dec)
-    return circuit_enc, circuit_dec
+    return circuit_enc
 
 
-def graficar(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small):
+def graficar(img_array, resize_dim, compressed_img_small, compressed_dim):
     plt.figure(figsize=(12, 4)) # Imagen original
-    plt.subplot(1, 3, 1)
+    plt.subplot(1, 2, 1)
     plt.imshow(img_array, cmap="gray")
     plt.title(f"Original {resize_dim[0]}x{resize_dim[1]}")
     plt.axis("off")
     # Imagen comprimida
-    plt.subplot(1, 3, 2)
+    plt.subplot(1, 2, 2)
     plt.imshow(compressed_img_small, cmap="gray")
     plt.title(f"Comprimida {compressed_dim[0]}x{compressed_dim[1]}")
     plt.axis("off")
-    # Imagen reconstruida
-    plt.subplot(1, 3, 3)
-    plt.imshow(reconstructed_img_small, cmap="gray")
-    plt.title(f"Reconstruida {resize_dim[0]}x{resize_dim[1]}")
-    plt.axis("off")
-    plt.tight_layout()
-    plt.show()
 
 
 
@@ -199,11 +164,11 @@ def mostrar_imagen_con_bloques(img, titulo, block_size):
         plt.axhline(y - 0.5, color="cyan", linewidth=0.8)
 
 
-def prueba(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small, block_size):
+def prueba(img_array, resize_dim, compressed_img_small, compressed_dim, block_size):
     plt.figure(figsize=(12, 4))
 
     # Original
-    plt.subplot(1, 3, 1)
+    plt.subplot(1, 2, 1)
     mostrar_imagen_con_bloques(
         img_array,
         f"Original {resize_dim[0]}x{resize_dim[1]}",
@@ -211,18 +176,10 @@ def prueba(img_array, resize_dim, compressed_img_small, compressed_dim, reconstr
     )
 
     # Comprimida
-    plt.subplot(1, 3, 2)
+    plt.subplot(1, 2, 2)
     mostrar_imagen_con_bloques(
         compressed_img_small,
         f"Comprimida {compressed_dim[0]}x{compressed_dim[1]}",
-        block_size
-    )
-
-    # Reconstruida
-    plt.subplot(1, 3, 3)
-    mostrar_imagen_con_bloques(
-        reconstructed_img_small,
-        f"Reconstruida {resize_dim[0]}x{resize_dim[1]}",
         block_size
     )
 
@@ -269,76 +226,3 @@ def graficar_MSE(train_iter_history, train_mse_history):
     plt.legend()
     plt.grid()
     plt.show()
-
-
-def optimizar_autoencoder_bloque_angle(opt, params_enc, params_dec, state, autoencoder_recon, encoder_trash):
-
-    opt.zero_grad()
-
-    # ---------- Autoencoder ----------
-    expvals = apply_autoencoder_recon(state, params_enc, params_dec, autoencoder_recon)
-    trash_expvals = apply_encoder_trash(state, params_enc, encoder_trash)
-
-
-    # ---------- Loss ----------
-    loss = loss_autoencoder(state, expvals, trash_expvals, lambda_trash=0.2)
-
-    # ---------- Backprop ---------
-
-    loss.backward()
-    opt.step()
-
-    return params_enc, params_dec, loss.item()
-
-
-def apply_autoencoder_recon(state, params_encoder, params_decoder, autoencoder_recon):
-
-    # estado_encoder = encoder_state(state, params_encoder, n_layers)
-    # print("Estado del bloque original:", state)
-    # print("Estado del encoder (antes de decoder):", estado_encoder)
-
-
-    expvals = autoencoder_recon(state, params_encoder, params_decoder)  # ← SIN np.array
-
-    return expvals
-
-def apply_encoder_trash(state, params_enc, encoder_trash):
-
-    # estado_encoder = encoder_state(state, params_encoder, n_layers)
-    # print("Estado del bloque original:", state)
-    # print("Estado del encoder (antes de decoder):", estado_encoder)
-
-
-    expvals = encoder_trash(state, params_enc)  # ← SIN np.array
-
-    return expvals
-
-
-
-def inicializar_autoencoder(dev, n_qubits):
-    import circuito
-    autoencoder = circuito.create_autoencoder_recon(dev, n_qubits)
-    encoder_trash = circuito.create_encoder_trash(dev, n_qubits)
-    return autoencoder, encoder_trash
-
-def loss_autoencoder(block_norm, expvals, trash_expvals, lambda_trash):
-    import circuito
-    pixels_expvals = (1 - torch.stack(expvals)) / 2
-    block_norm = block_norm.flatten()
-
-    print("Valores Z : ", pixels_expvals)
-    print("Bloque original : ", block_norm)
-
-
-    loss = circuito.loss_autoencoder(block_norm, pixels_expvals, trash_expvals, lambda_trash)
-    return loss
-
-def inicializa_encoder_probs(dev, n_qubits):
-    import circuito
-    circuit_enc = circuito.create_encoder_probs(dev, n_qubits)
-    return circuit_enc
-
-
-def coarse_grain_probs(vals, n_pixels_out):
-    vals = vals.reshape(n_pixels_out, -1)
-    return vals.sum(dim=1)

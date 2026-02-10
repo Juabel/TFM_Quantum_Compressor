@@ -6,7 +6,6 @@ import glob
 import inicializa_params
 import funciones_estado
 import torch
-from skimage.metrics import structural_similarity as ssim
 
 
 
@@ -60,7 +59,7 @@ compressed_dim = (
 compressed_rows = compressed_dim[0]   
 compressed_cols = compressed_dim[1]
 
-n_qubits = 16 # Número de qubits para representar cada bloque, tiene que ser consistente con el tamaño del bloque (2^n_qubits = block_size*block_size)
+n_qubits = 4 # Número de qubits para representar cada bloque, tiene que ser consistente con el tamaño del bloque (2^n_qubits = block_size*block_size)
 n_outputs = 4
 
 #DEFINIR ESTO
@@ -78,46 +77,24 @@ num_iteraciones_bloque = 20 # Número de iteraciones locales para optimizar cada
 
 optimizer_name = "Adam" # Nombre del optimizador a usar
 
-
-# if optimizer_name == "Adam":
-#     opt = qml.AdamOptimizer(stepsize=tasa_de_aprendizaje)
-# elif optimizer_name == "GradientDescent":
-#     opt= qml.GradientDescentOptimizer(stepsize=tasa_de_aprendizaje)
-
-
 tecnica_de_encoding_ansatz = {
     "Amplitude": 1,
-    # "RotacionesY": 1,
-    # "CNOT": 1
+    "RotacionesY": 1,
+    "CNOT": 1
 } # Técnica de encoding a usar en el circuito cuántico, puede ser una lista de técnicas para aplicar secuencialmente
 
-tecnica_de_decoding_ansatz = {
-    "Angle": 1,
-    # "RotacionesY": 1,
-    # "CNOT": 1
-} # Técnica de decoding a usar en el circuito cuántico.
-# ¡¡IMPORTANTE!! Este codigo utilizad de embedding amplitude, el cual hacer la compresion. 
-# Luego por ello el decoder no va a ser el inverso del decoder para nada.
 
-entrenamiento = False # Si se quiere entrenar el autoencoder o solo hacer la reconstrucción con parámetros ya entrenados
+entrenamiento = True # Si se quiere entrenar el autoencoder o solo hacer la reconstrucción con parámetros ya entrenados
 
 
 #num_layers = 2 # Número de capas para los parámetros del encoder y decoder
 
-# CHECKEAR EL ENTRENAMIENTO DEL ROTACIONAL EN EL DECODER
-mse_por_bloque = [] # Lista para almacenar los MSE por bloque durante la reconstrucción
-ssim_por_bloque = []
-
-
 
 start_time = time.time() # Tiempo de inicio para medir el tiempo total de ejecución
-
-n_qubits_dec = n_qubits
 
 #block_size * block_size  # 4x4 = 16 qubits
 
 dev = qml.device("default.qubit", wires=n_qubits) # Dispositivo cuántico simulado (el de por defecto)
-dev_dec = qml.device("default.qubit", wires=n_qubits_dec) # Dispositivo cuántico simulado para el decoder
 device = "cpu" # Dispositivo para PyTorch (CPU o GPU)
 
 # ------------------ Configuración variables iniciales ------------------
@@ -127,10 +104,10 @@ device = "cpu" # Dispositivo para PyTorch (CPU o GPU)
 
 
 
-params = inicializa_params.inic_params(block_size, resize_dim, n_qubits_dec, n_qubits)
+params = inicializa_params.inic_params(block_size, resize_dim, n_qubits, device)
 
 #Inicializar circuitos (no se usan los circuitos dev y dev_dec, pero si las funciones qnode que crean)
-circuit_enc, circuit_dec = funciones_estado.inicializar_circuitos(dev, dev_dec, n_qubits, tecnica_de_encoding_ansatz, tecnica_de_decoding_ansatz)
+circuit_enc = funciones_estado.inicializar_circuitos(dev, n_qubits, tecnica_de_encoding_ansatz)
 
 
 opt = inicializa_params.crear_optimizador(optimizer_name, params, tasa_de_aprendizaje)
@@ -142,22 +119,16 @@ opt = inicializa_params.crear_optimizador(optimizer_name, params, tasa_de_aprend
 # ------------------ Entrenamiento global ------------------
 
 # --- Métricas de entrenamiento ---
-train_mse_history = []      # MSE medio por iteración
 train_iter_history = []     # Índice global de iteración
 global_iter = 0
 
-alpha = 1.0  # Peso para el MSE en la función de pérdida combinada
-betta = 0.0  # Peso para el SSIM en la función de pérdida
-
 compressed_img_small = np.zeros((compressed_rows, compressed_cols))
-reconstructed_img_small = np.zeros((resize_dim[0], resize_dim[1]))
 
 idx = 0
 num_imagen = 0
 for f in files:
     num_imagen += 1
     print(f"Reconstruyendo imagen comprimida {num_imagen}/{len(files)}...")
-    reconstructed_blocks = []
     # img = Image.open(f).resize(resize_dim) # Redimensionar
     img = Image.open(f)
     # Redimensionar la imagen a las dimensiones especificadas
@@ -174,8 +145,6 @@ for f in files:
 
         for epoch in range(num_iteraciones_global):
             print(f"\nEpoch {epoch+1}/{num_iteraciones_global}")
-
-            mse_epoch = []
             iter_epoch = []
 
             bloque_num = 0
@@ -196,24 +165,22 @@ for f in files:
                     for iter in range(num_iteraciones_bloque):
 
                         # ---- ENTRENAMIENTO ----
-                        params[(i, j)], mse = funciones_estado.optimizar_autoencoder_bloque(
-                            alpha, betta, opt, params[(i, j)], state, block_norm, circuit_enc, circuit_dec, block_size
+                        params[(i, j)], loss = funciones_estado.optimizar_autoencoder_bloque(
+                            opt, params[(i, j)], state, block_norm, circuit_enc, output_block_size_height, output_block_size_width
                         )
 
-                        params_enc, params_dec_block = params[(i, j)]
+                        params_enc = params[(i, j)]
 
-                        print(f" Iteración {iter+1}/{num_iteraciones_bloque} - MSE: {mse:.6f}")
+                        print(f" Iteración {iter+1}/{num_iteraciones_bloque} - LOSS: {loss:.6f}")
 
-                        if iter == 3 and mse < 1e-6:
-                            print("MSE muy bajo, saliendo del entrenamiento local del bloque.")
+                        if iter == 3 and loss < 1e-6:
+                            print("LOSS muy bajo, saliendo del entrenamiento local del bloque.")
                             break
 
                     global_iter += 1
                     if(block_sum.item() == 0.0):
                         mse = 0.0
-                    mse_epoch.append(mse)
                     iter_epoch.append(global_iter)
-            train_mse_history.append(mse_epoch)
             train_iter_history.append(iter_epoch)
 
 
@@ -226,7 +193,7 @@ for f in files:
 
             print("Estado inicial a utilizar en bloque :", state)
 
-            params_enc, params_dec_block = params[(i, j)]
+            params_enc = params[(i, j)]
 
             z_vals = funciones_estado.medicion(state, params_enc, circuit_enc)
             
@@ -244,28 +211,6 @@ for f in files:
             compressed_img_small[row_idx:row_idx+output_block_size_height,
                              col_idx:col_idx+output_block_size_width] = output
                         
-            # Decoder 
-
-            z_vals_decoder = funciones_estado.medicion_decoder(z_vals, params_dec_block, circuit_dec)
-
-            print("Z valores obtenidos por el decoder : ", z_vals_decoder)
-
-            output_dec = funciones_estado.escalar_generar_imagen_mediciones_decoder(z_vals_decoder, block_sum, block_size)
-
-            print("Output del decoder : ", output_dec)
-
-            reconstructed_img_small[i:(i+block_size), 
-                                    j:(j+block_size)] = output_dec
-
-            
-            if(block_sum.item() == 0.0):
-                mse = 0.0
-            else:
-                mse = funciones_estado.loss_autoencoder_block(alpha, betta, block_norm, z_vals_decoder, block_size)
-            print(f"\nMSE: {mse:.6f}")
-
-
-            mse_por_bloque.append(mse)
     
             idx += 1
 
@@ -273,7 +218,6 @@ for f in files:
 
     Image.fromarray(compressed_img_small.astype(np.uint8)).save(compressed_save_path)
     Image.fromarray(img_array.detach().cpu().numpy().astype(np.uint8)).save(img_save_path)    
-    Image.fromarray(reconstructed_img_small.astype(np.uint8)).save(reconstructed_save_path)
 
     # funciones_estado.graficar(
     #     img_array, resize_dim,
@@ -282,8 +226,8 @@ for f in files:
     #     show_values=True
     # )
 
-    funciones_estado.graficar(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small)
-    funciones_estado.prueba(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small, block_size)
+    funciones_estado.graficar(img_array, resize_dim, compressed_img_small, compressed_dim)
+    funciones_estado.prueba(img_array, resize_dim, compressed_img_small, compressed_dim, block_size)
 
 
     inicial_original_disk_size = funciones_estado.obtener_tamaño(f)
@@ -299,9 +243,6 @@ for f in files:
     
 # ------------------ Métricas ------------------
 
-#Media de MSE global
-mse_nonzero = [x for x in mse_por_bloque if x != 0]
-media_MSE = sum(mse_nonzero) / len(mse_nonzero) if mse_nonzero else 0.0
 
 # Media de ratios de compresión
 average_disk_ratio = np.mean(log_ratios) if log_ratios else 0
@@ -328,17 +269,4 @@ funciones_estado.guardar_log(ruta_log,
                              average_tamaño_comprimido)
 
 
-#Para SSIM
-original = img_array.detach().cpu().numpy().astype(np.uint8)
-reconstructed = reconstructed_img_small.astype(np.uint8)
-ssim_val = ssim(original, reconstructed, data_range=255)
-
-
-
-with open (ruta_log, "a") as f:
-    f.write(f"\nMSE medio global de todas las imagenes: {media_MSE:.6f}\n")
-    f.write(f"SSIM medio de las imagenes: {ssim_val:.6f}\n")
-
-
-funciones_estado.graficar_MSE(train_iter_history, train_mse_history)
 
