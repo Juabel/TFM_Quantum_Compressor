@@ -7,6 +7,9 @@ import inicializa_params
 import funciones_estado
 import torch
 from skimage.metrics import structural_similarity as ssim
+import matplotlib.pyplot as plt
+import read_sim_data_for_training as reader
+
 
 
 
@@ -27,6 +30,13 @@ num_de_imagenes = 50 #Es para el log
 # DATOS MNIST
 files = glob.glob("C:\\Users\\jbelio\\.cache\\kagglehub\\datasets\\ben519\\mnist-as-png\\versions\\1\\mnist-png\\train\\0\\train_image_1.png")
 
+#DATOS PHASE-FIELD
+data_raw_path = "//datastore.tekniker.es/ia/data-analytics/KUBIBIT/QML/dataset/raw_dendrites_juan"
+idxToSave = [1500, 4000]
+exp_id = 5
+X, Y, _ = reader.read_simulations_nad_get_XY(None, data_raw_path, idxToSave, exp_id, sep = ";")
+
+
 
 
 img_save_path = "Resultados/original_resized.png" # Ruta para guardar la imagen redimensionada en base a la original
@@ -36,16 +46,16 @@ ruta_log = "Resultados/log.txt" # Ruta del archivo de log con resultados
 
 tasa_de_aprendizaje = 0.05 # Tasa de aprendizaje para el optimizador
 
-output_block_size_height = 2   # Porque tiene 4 Z-vals → 2×2 image
+output_block_size_height = 1   # Porque tiene 4 Z-vals → 2×2 image
 output_block_size_width = 2 # Porque tiene 4 Z-vals → 2×2 image
 
 
 
-# resize_dim = (400, 400) # Dimensiones para redimensionar la imagen original
+resize_dim = (100, 100) # Dimensiones para redimensionar la imagen original PHASE-FIELD
 
-resize_dim = (28, 28) # Dimensiones para redimensionar la imagen original
+# resize_dim = (28, 28) # Dimensiones para redimensionar la imagen original
 
-block_size = 4 # Tamaño de bloque para dividir la imagen, por ejemplo, bloques de 4x4 píxeles
+block_size = 2 # Tamaño de bloque para dividir la imagen, por ejemplo, bloques de 4x4 píxeles
 n_blocks_h = resize_dim[0] // block_size
 n_blocks_w = resize_dim[1] // block_size
 
@@ -60,9 +70,7 @@ compressed_dim = (
 compressed_rows = compressed_dim[0]   
 compressed_cols = compressed_dim[1]
 
-n_qubits = 16 # Número de qubits para representar cada bloque, tiene que ser consistente con el tamaño del bloque (2^n_qubits = block_size*block_size)
-n_outputs = 4
-
+n_qubits = 2 # Número de qubits para representar cada bloque, tiene que ser consistente con el tamaño del bloque (2^n_qubits = block_size*block_size)
 #DEFINIR ESTO
 
 #SABER SI VA EN COLUMNAS O FILAS
@@ -85,21 +93,10 @@ optimizer_name = "Adam" # Nombre del optimizador a usar
 #     opt= qml.GradientDescentOptimizer(stepsize=tasa_de_aprendizaje)
 
 
-tecnica_de_encoding_ansatz = {
-    "Amplitude": 1,
-    # "RotacionesY": 1,
-    # "CNOT": 1
-} # Técnica de encoding a usar en el circuito cuántico, puede ser una lista de técnicas para aplicar secuencialmente
+tecnica_de_encoding_ansatz = "Amplitude"
 
-tecnica_de_decoding_ansatz = {
-    "Angle": 1,
-    # "RotacionesY": 1,
-    # "CNOT": 1
-} # Técnica de decoding a usar en el circuito cuántico.
-# ¡¡IMPORTANTE!! Este codigo utilizad de embedding amplitude, el cual hacer la compresion. 
-# Luego por ello el decoder no va a ser el inverso del decoder para nada.
-
-entrenamiento = False # Si se quiere entrenar el autoencoder o solo hacer la reconstrucción con parámetros ya entrenados
+n_layers = 1 # Número de capas para los parámetros del encoder y decoder, es decir, cuántas veces se repite el bloque de gates parametrizadas en el circuito del encoder y decoder. Se puede usar el mismo número de capas para ambos o diferentes, pero por simplicidad se suele usar el mismo número.
+entrenamiento = True # Si se quiere entrenar el autoencoder o solo hacer la reconstrucción con parámetros ya entrenados
 
 
 #num_layers = 2 # Número de capas para los parámetros del encoder y decoder
@@ -127,10 +124,10 @@ device = "cpu" # Dispositivo para PyTorch (CPU o GPU)
 
 
 
-params = inicializa_params.inic_params(block_size, resize_dim, n_qubits_dec, n_qubits)
+params = inicializa_params.inic_params_angle(block_size, resize_dim, n_qubits, n_layers)
 
 #Inicializar circuitos (no se usan los circuitos dev y dev_dec, pero si las funciones qnode que crean)
-circuit_enc, circuit_dec = funciones_estado.inicializar_circuitos(dev, dev_dec, n_qubits, tecnica_de_encoding_ansatz, tecnica_de_decoding_ansatz)
+circuit_enc, circuit_dec = funciones_estado.inicializar_circuitos(dev, dev_dec, n_qubits)
 
 
 opt = inicializa_params.crear_optimizador(optimizer_name, params, tasa_de_aprendizaje)
@@ -152,17 +149,34 @@ betta = 0.0  # Peso para el SSIM en la función de pérdida
 compressed_img_small = np.zeros((compressed_rows, compressed_cols))
 reconstructed_img_small = np.zeros((resize_dim[0], resize_dim[1]))
 
+
+# para = 0
+
 idx = 0
 num_imagen = 0
-for f in files:
+
+for idx_img in range(Y.shape[0]): #PHASE-FIELD
+# for f in files
     num_imagen += 1
-    print(f"Reconstruyendo imagen comprimida {num_imagen}/{len(files)}...")
+
+    # print(f"Reconstruyendo imagen comprimida {num_imagen}/{len(files)}...")
+
     reconstructed_blocks = []
     # img = Image.open(f).resize(resize_dim) # Redimensionar
-    img = Image.open(f)
-    # Redimensionar la imagen a las dimensiones especificadas
-    img = img.resize(resize_dim)
-    img_array = torch.from_numpy(np.array(img)).float().to(device)
+
+    img_np = X[idx_img, :, :, 0]   # canal op PHASE-FIELD
+    img_min = img_np.min()
+    img_max = img_np.max()
+
+    img_np = (img_np - img_min) / (img_max - img_min + 1e-8)
+    img_np = img_np * 255.0
+    img_array = torch.from_numpy(img_np).float().to(device)
+
+
+    # img = Image.open(f)
+    # # Redimensionar la imagen a las dimensiones especificadas
+    # img = img.resize(resize_dim)
+    # img_array = torch.from_numpy(np.array(img)).float().to(device)
 
 
     # Generar listas para guardar mse e iteraciones locales por imagen, de forma que luego por cada iteración global tengo una gráfica
@@ -170,10 +184,10 @@ for f in files:
 
 
     if entrenamiento == True:
-        print("\n=== ENTRENAMIENTO AUTOENCODER ===")
+        # print("\n=== ENTRENAMIENTO AUTOENCODER ===")
 
         for epoch in range(num_iteraciones_global):
-            print(f"\nEpoch {epoch+1}/{num_iteraciones_global}")
+            # print(f"\nEpoch {epoch+1}/{num_iteraciones_global}")
 
             mse_epoch = []
             iter_epoch = []
@@ -187,12 +201,13 @@ for f in files:
                     state, block_norm, block_sum = funciones_estado.imagen_flatten(
                         img_array, i, j, block_size, device
                     )
-                    print("Estado inicial a utilizar en bloque :", state)
+                    # print("Estado inicial a utilizar en bloque :", state)
 
                     if(block_sum.item() == 0.0):
-                        print("Bloque de solo ceros, saltando entrenamiento local del bloque.")
+                        # print("Bloque de solo ceros, saltando entrenamiento local del bloque.")
                         continue
 
+                    # grafiquito_mse = []
                     for iter in range(num_iteraciones_bloque):
 
                         # ---- ENTRENAMIENTO ----
@@ -202,11 +217,23 @@ for f in files:
 
                         params_enc, params_dec_block = params[(i, j)]
 
-                        print(f" Iteración {iter+1}/{num_iteraciones_bloque} - MSE: {mse:.6f}")
+                        # print(f" Iteración {iter+1}/{num_iteraciones_bloque} - MSE: {mse:.6f}")
+
+                        # grafiquito_mse.append(mse)
 
                         if iter == 3 and mse < 1e-6:
-                            print("MSE muy bajo, saliendo del entrenamiento local del bloque.")
+                            # print("MSE muy bajo, saliendo del entrenamiento local del bloque.")
                             break
+
+                    # #Grafico rapido y simple
+                    # para = para + 1
+                    # if para <= 3:
+                    #     plt.figure()
+                    #     plt.plot(grafiquito_mse)
+                    #     plt.xlabel("Iteración")
+                    #     plt.ylabel("MSE")
+                    #     plt.title("Evolución del MSE durante el entrenamiento")
+                    #     plt.show()
 
                     global_iter += 1
                     if(block_sum.item() == 0.0):
@@ -218,13 +245,13 @@ for f in files:
 
 
 
-    print("\n=== RECONSTRUCCIÓN ===")
+    # print("\n=== RECONSTRUCCIÓN ===")
 
     for i in range(0, resize_dim[0], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (filas)
         for j in range(0, resize_dim[1], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (columnas)
             state, block_norm, block_sum = funciones_estado.imagen_flatten(img_array, i, j, block_size, device)
 
-            print("Estado inicial a utilizar en bloque :", state)
+            # print("Estado inicial a utilizar en bloque :", state)
 
             params_enc, params_dec_block = params[(i, j)]
 
@@ -234,12 +261,12 @@ for f in files:
             row_idx = (i // block_size) * output_block_size_height
             col_idx = (j // block_size) * output_block_size_width
 
-            print("Z valores obtenidos por el encoder : ",z_vals)
-            print("Block sum (intensidad del bloque original) : ", block_sum)
+            # print("Z valores obtenidos por el encoder : ",z_vals)
+            # print("Block sum (intensidad del bloque original) : ", block_sum)
 
             output = funciones_estado.escalar_generar_imagen_mediciones_encoder(z_vals, block_sum, output_block_size_height, output_block_size_width)
 
-            print("Output del encoder : ", output)
+            # print("Output del encoder : ", output)
 
             compressed_img_small[row_idx:row_idx+output_block_size_height,
                              col_idx:col_idx+output_block_size_width] = output
@@ -248,11 +275,11 @@ for f in files:
 
             z_vals_decoder = funciones_estado.medicion_decoder(z_vals, params_dec_block, circuit_dec)
 
-            print("Z valores obtenidos por el decoder : ", z_vals_decoder)
+            # print("Z valores obtenidos por el decoder : ", z_vals_decoder)
 
             output_dec = funciones_estado.escalar_generar_imagen_mediciones_decoder(z_vals_decoder, block_sum, block_size)
 
-            print("Output del decoder : ", output_dec)
+            # print("Output del decoder : ", output_dec)
 
             reconstructed_img_small[i:(i+block_size), 
                                     j:(j+block_size)] = output_dec
@@ -261,8 +288,17 @@ for f in files:
             if(block_sum.item() == 0.0):
                 mse = 0.0
             else:
-                mse = funciones_estado.loss_autoencoder_block(alpha, betta, block_norm, z_vals_decoder, block_size)
-            print(f"\nMSE: {mse:.6f}")
+                # print("Bloque original a mirar orden", block_norm)
+                # print("Z_vals a mirar orden", z_vals_decoder)
+
+                output01 = output_dec / 255.0
+                state_ordenado = torch.tensor([
+                [state[0], state[2]],  # arriba izquierda, arriba derecha
+                [state[1], state[3]]   # abajo izquierda, abajo derecha
+            ])
+
+                mse = qml.math.mean((state_ordenado - output01) ** 2)
+            # print(f"\nMSE: {mse:.6f}")
 
 
             mse_por_bloque.append(mse)
@@ -286,7 +322,7 @@ for f in files:
     funciones_estado.prueba(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small, block_size)
 
 
-    inicial_original_disk_size = funciones_estado.obtener_tamaño(f)
+    # inicial_original_disk_size = funciones_estado.obtener_tamaño(f)
     original_disk_size = funciones_estado.obtener_tamaño(img_save_path)
     compressed_disk_size = funciones_estado.obtener_tamaño(compressed_save_path)
     disk_ratio = original_disk_size / compressed_disk_size if compressed_disk_size > 0 else float('inf')
@@ -295,7 +331,7 @@ for f in files:
     log_tamaño_original.append(original_disk_size)
     log_tamaño_comprimido.append(compressed_disk_size)
     log_ratios.append(disk_ratio)
-    print(f"Imagen {num_imagen}: Tamano original = {original_disk_size:.6f} MB, Tamaño comprimido = {compressed_disk_size:.6f} MB, Ratio de compresion = {disk_ratio:.2f}x")
+    # print(f"Imagen {num_imagen}: Tamano original = {original_disk_size:.6f} MB, Tamaño comprimido = {compressed_disk_size:.6f} MB, Ratio de compresion = {disk_ratio:.2f}x")
     
 # ------------------ Métricas ------------------
 
@@ -312,7 +348,7 @@ average_tamaño_comprimido = np.mean(log_tamaño_comprimido) if log_tamaño_comp
 
 end_time = time.time() # Tiempo de fin para medir el tiempo total de ejecución
 tiempo_total = end_time - start_time
-print(f"Tiempo total: {tiempo_total:.2f} segundos")
+# print(f"Tiempo total: {tiempo_total:.2f} segundos")
 
 funciones_estado.guardar_log(ruta_log, 
                              resize_dim, 

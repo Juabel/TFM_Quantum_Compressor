@@ -63,7 +63,6 @@ compressed_rows = compressed_dim[0]
 compressed_cols = compressed_dim[1]
 
 n_qubits = 4 # Número de qubits para representar cada bloque, tiene que ser consistente con el tamaño del bloque (2^n_qubits = block_size*block_size)
-n_pixels_out = 2
 #DEFINIR ESTO
 
 #SABER SI VA EN COLUMNAS O FILAS
@@ -98,7 +97,7 @@ start_time = time.time() # Tiempo de inicio para medir el tiempo total de ejecuc
 
 #block_size * block_size  # 4x4 = 16 qubits
 
-dev = qml.device("default.mixed", wires=n_qubits) # Dispositivo cuántico simulado (el de por defecto)
+dev = qml.device("default.qubit", wires=n_qubits) # Dispositivo cuántico simulado (el de por defecto)
 device = "cpu" # Dispositivo para PyTorch (CPU o GPU)
 
 # ------------------ Configuración variables iniciales ------------------
@@ -111,8 +110,9 @@ device = "cpu" # Dispositivo para PyTorch (CPU o GPU)
 params = inicializa_params.inic_params_angle(block_size, resize_dim, n_qubits, n_layers)
 
 #Inicializar circuitos (no se usan los circuitos dev y dev_dec, pero si las funciones qnode que crean)
-autoencoder_recon, encoder_trash = funciones_estado.inicializar_autoencoder(dev, n_qubits)
+autoencoder_recon = funciones_estado.inicializar_autoencoder(dev, n_qubits)
 circuit_encoder_probs = funciones_estado.inicializa_encoder_probs(dev, n_qubits)
+circuit_decoder_probs = funciones_estado.inicializa_decoder_probs(dev, n_qubits)
 
 
 opt = inicializa_params.crear_optimizador_angle(optimizer_name, params, tasa_de_aprendizaje)
@@ -132,6 +132,8 @@ global_iter = 0
 
 compressed_img_small = np.zeros((compressed_rows, compressed_cols))
 reconstructed_img_small = np.zeros((resize_dim[0], resize_dim[1]))
+
+para = 0
 
 idx = 0
 num_imagen = 0
@@ -168,10 +170,11 @@ for f in files:
                     state, block_norm, block_sum = funciones_estado.imagen_flatten(
                         img_array, i, j, block_size, device
                     )
+                    state = state * torch.pi
                     if(block_sum.item() == 0.0):
                         print("Bloque de solo ceros, saltando entrenamiento local del bloque.")
                         continue
-                    # grafiquito_mse = []
+                    grafiquito_mse = []
                     for iter in range(num_iteraciones_bloque):
 
                         params_enc, params_dec = params[(i, j)]
@@ -186,26 +189,28 @@ for f in files:
 
                         # ---- ENTRENAMIENTO ----
                         params_enc, params_dec, mse = funciones_estado.optimizar_autoencoder_bloque_angle(
-                            opt, params_enc, params_dec, state, autoencoder_recon, encoder_trash
+                            opt, params_enc, params_dec, state, autoencoder_recon
                         )
 
                         params[(i, j)] = (params_enc, params_dec)
 
                         print(f" Iteración {iter+1}/{num_iteraciones_bloque} - MSE: {mse:.6f}")
 
-                        # grafiquito_mse.append(mse)
+                        grafiquito_mse.append(mse)
 
                         if iter == 3 and mse < 1e-6:
                             print("MSE muy bajo, saliendo del entrenamiento local del bloque.")
                             break
 
-                    # #Grafico rapido y simple
-                    # plt.figure()
-                    # plt.plot(grafiquito_mse)
-                    # plt.xlabel("Iteración")
-                    # plt.ylabel("MSE")
-                    # plt.title("Evolución del MSE durante el entrenamiento")
-                    # plt.show()
+                    #Grafico rapido y simple
+                    para = para + 1
+                    if para <= 3:
+                        plt.figure()
+                        plt.plot(grafiquito_mse)
+                        plt.xlabel("Iteración")
+                        plt.ylabel("MSE")
+                        plt.title("Evolución del MSE durante el entrenamiento")
+                        plt.show()
 
                     global_iter += 1
                     if(block_sum.item() == 0.0):
@@ -222,14 +227,17 @@ for f in files:
     for i in range(0, resize_dim[0], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (filas)
         for j in range(0, resize_dim[1], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (columnas)
             state, block_norm, block_sum = funciones_estado.imagen_flatten(img_array, i, j, block_size, device)
+            state = state * torch.pi
 
             print("Estado inicial a utilizar en bloque :", state)
 
             params_enc, params_dec = params[(i, j)]
 
             z_vals_encoder = circuit_encoder_probs(state, params_enc)
+
+
             # compressed_pixels = funciones_estado.coarse_grain_probs(z_vals_encoder, n_pixels_out)
-            z_vals_decoder = torch.stack(z_vals_encoder)
+            z_vals_encoder = torch.stack(z_vals_encoder)
 
                         
             # Índices destino en la imagen comprimida
@@ -242,13 +250,14 @@ for f in files:
             print("Output del encoder : ", output)
 
             compressed_img_small[row_idx:row_idx+output_block_size_height,
-                             col_idx:col_idx+output_block_size_width] = output.detach().cpu().numpy()
+                             col_idx:col_idx+output_block_size_width] = output
 
 
 
             # Decoder 
 
-            z_vals_decoder = autoencoder_recon(state, params_enc, params_dec)
+            z_vals_decoder, _ = autoencoder_recon(state, params_enc, params_dec)
+            # z_vals_decoder = circuit_decoder_probs(z_vals_encoder, params_dec)
             # z_vals_decoder = funciones_estado.coarse_grain_probs(z_vals_decoder, n_qubits)
 
             z_vals_decoder = torch.stack(z_vals_decoder)
@@ -260,8 +269,7 @@ for f in files:
             print("Output del decoder : ", output_dec)
 
             reconstructed_img_small[i:(i+block_size), 
-                                    j:(j+block_size)] = output_dec.detach().cpu().numpy()
-
+                                    j:(j+block_size)] = output_dec
             
             if(block_sum.item() == 0.0):
                 mse = 0.0
@@ -311,7 +319,7 @@ for f in files:
 # ------------------ Métricas ------------------
 
 #Media de MSE global
-mse_nonzero = [x for x in mse_por_bloque if x != 1.0]
+mse_nonzero = [x for x in mse_por_bloque if x != 0.0]
 average_mse = sum(mse_nonzero) / len(mse_nonzero) if mse_nonzero else 1.0
 
 # Media de ratios de compresión

@@ -38,16 +38,14 @@ def crear_optimizador(optimizer_name, params, tasa_de_aprendizaje):
     
 def inic_params_angle(block_size, resize_dim, n_qubits, n_layers):
     params = {}
-
     for i in range(0, resize_dim[0], block_size):
         for j in range(0, resize_dim[1], block_size):
-
             params_enc = torch.nn.Parameter(
                 0.01 * torch.randn(n_layers, n_qubits, 3)
             )
             
             params_dec = torch.nn.Parameter(
-                0.01 * torch.randn(n_layers, n_qubits, 3)
+                0.01 * torch.randn(n_layers, 2, 3)
             )
             params[(i, j)] = (params_enc, params_dec)
 

@@ -17,9 +17,12 @@ def imagen_flatten(img_array, i, j, block_size, device):
     block_sum = block_norm.mean()
 
     scaled_block_sum = block_sum * 2  # ahora valores <1 → baja intensidad, >1 → alta intensidad
+    # scaled_block_sum = block_sum
+
 
 
     block_flat = block_norm.T.reshape(-1)
+    print(block_flat)
 
     # --- PROTECCIÓN CASO VECTOR CERO ---
     norm = block_flat.norm()
@@ -45,9 +48,9 @@ def medicion_decoder(z_vals, params_dec, circuit_dec):
 
     z_vals_tensor = z_vals.flatten()
     probs_list = circuit_dec(z_vals_tensor, params_dec)
-    probs = torch.stack(probs_list)
+    z_vals = torch.stack(probs_list)
 
-    return probs
+    return z_vals
 
 def escalar_generar_imagen_mediciones_encoder(probs, block_sum, output_block_size_height, output_block_size_width):
     return reconstruccion_bloque_encoder(probs, block_sum, output_block_size_height, output_block_size_width)  # forma original, ej: 2x2 o 4x4
@@ -75,17 +78,24 @@ def escalar_generar_imagen_mediciones_decoder(probs, block_sum, block_size):
 
 
 def loss_autoencoder_block(alpha, betta, block_norm, probs, block_size):
+    import circuito
+    
     # Reconstrucción
+
+
+    #CORREGIR Y CAMBIAR ESTO AHORA CON STRONGLYENTANGLED Y EL LOSS HACERLO EN EL CIRCUITO.PY PARA NO TENER QUE HACER UN LOSS DIFERENCIABLE
+
+
+
 
     reconstructed = reconstruccion_bloque_decoder(probs, block_size).to(dtype=block_norm.dtype)
     # Añadimos batch y canal
-    reconstructed_ = reconstructed.unsqueeze(0).unsqueeze(0)
-    block_norm_ = block_norm.unsqueeze(0).unsqueeze(0)
-
-
+    # reconstructed_ = reconstructed.unsqueeze(0).unsqueeze(0)
+    # block_norm_ = block_norm.unsqueeze(0).unsqueeze(0)
 
     # --- MSE diferenciable ---
-    mse_val = F.mse_loss(reconstructed_, block_norm_)
+    mse_val = circuito.loss_autoencoder_amplitude(reconstructed, block_norm)
+
 
     # --- SSIM diferenciable ---
     # ssim_fn = StructuralSimilarityIndexMeasure(data_range=1.0).to(reconstructed_.device)
@@ -104,7 +114,8 @@ def reconstruccion_bloque_encoder(z_vals, block_sum, output_block_size_height, o
         block_sum = torch.tensor(block_sum, dtype=z_vals.dtype)
 
 
-    z_vals = torch.tensor(z_vals, dtype=torch.float32)  # <<< convierte la lista a tensor
+    z_vals = z_vals.clone().detach()
+
 
     # z_vals: (2,)
     z_vals_scaled = (1 - z_vals) / 2
@@ -122,7 +133,20 @@ def reconstruccion_bloque_encoder(z_vals, block_sum, output_block_size_height, o
 def reconstruccion_bloque_decoder(z_vals, block_size):
     # z_vals: (4,)
     # return z_vals.reshape(block_size, block_size)
-    z_vals = (1 - z_vals) / 2  # Escalado a [0,1]
+
+
+
+
+    #PROBAR
+
+    print("Z-VALS antes de escalar:", z_vals)
+    z_vals = (1 - (z_vals)) / 2  # Escalado a [0,1]
+    print("Z-VALS despues de escalar:", z_vals)
+
+    # z_vals = ((z_vals) + 1) / 2  # Escalado a [0,1]
+
+
+
 
     return z_vals.reshape(block_size, block_size).T
     #return qml.numpy.reshape(z_vals, (4, 4), order='F')
@@ -156,10 +180,10 @@ def optimizar_autoencoder_bloque(alpha, betta, opt, params, state, block_norm, c
     return (params_enc, params_dec), loss.item()
 
 
-def inicializar_circuitos(dev, dev_dec, n_qubits, tecnica_enc, tecnica_dec):
+def inicializar_circuitos(dev, dev_dec, n_qubits):
     import circuito
-    circuit_enc = circuito.create_circuit_meas(dev, n_qubits, tecnica_enc)
-    circuit_dec = circuito.create_circuit_module_dec(dev_dec, n_qubits, tecnica_dec)
+    circuit_enc = circuito.create_circuit_meas(dev, n_qubits)
+    circuit_dec = circuito.create_circuit_module_dec(dev_dec, n_qubits)
     return circuit_enc, circuit_dec
 
 
@@ -271,17 +295,15 @@ def graficar_MSE(train_iter_history, train_mse_history):
     plt.show()
 
 
-def optimizar_autoencoder_bloque_angle(opt, params_enc, params_dec, state, autoencoder_recon, encoder_trash):
+def optimizar_autoencoder_bloque_angle(opt, params_enc, params_dec, state, autoencoder_recon):
 
     opt.zero_grad()
 
     # ---------- Autoencoder ----------
-    expvals = apply_autoencoder_recon(state, params_enc, params_dec, autoencoder_recon)
-    trash_expvals = apply_encoder_trash(state, params_enc, encoder_trash)
-
+    recon_expvals, trash_expvals = apply_autoencoder_recon(state, params_enc, params_dec, autoencoder_recon)
 
     # ---------- Loss ----------
-    loss = loss_autoencoder(state, expvals, trash_expvals, lambda_trash=0.2)
+    loss = loss_autoencoder(state, recon_expvals, trash_expvals, lambda_trash=0.9)
 
     # ---------- Backprop ---------
 
@@ -298,45 +320,34 @@ def apply_autoencoder_recon(state, params_encoder, params_decoder, autoencoder_r
     # print("Estado del encoder (antes de decoder):", estado_encoder)
 
 
-    expvals = autoencoder_recon(state, params_encoder, params_decoder)  # ← SIN np.array
+    expvals, trash_expvals = autoencoder_recon(state, params_encoder, params_decoder)  # ← SIN np.array
 
-    return expvals
-
-def apply_encoder_trash(state, params_enc, encoder_trash):
-
-    # estado_encoder = encoder_state(state, params_encoder, n_layers)
-    # print("Estado del bloque original:", state)
-    # print("Estado del encoder (antes de decoder):", estado_encoder)
-
-
-    expvals = encoder_trash(state, params_enc)  # ← SIN np.array
-
-    return expvals
+    return expvals, trash_expvals
 
 
 
 def inicializar_autoencoder(dev, n_qubits):
     import circuito
     autoencoder = circuito.create_autoencoder_recon(dev, n_qubits)
-    encoder_trash = circuito.create_encoder_trash(dev, n_qubits)
-    return autoencoder, encoder_trash
+    return autoencoder
 
 def loss_autoencoder(block_norm, expvals, trash_expvals, lambda_trash):
     import circuito
     pixels_expvals = (1 - torch.stack(expvals)) / 2
     block_norm = block_norm.flatten()
 
-    print("Valores Z : ", pixels_expvals)
-    print("Bloque original : ", block_norm)
-
-
-    loss = circuito.loss_autoencoder(block_norm, pixels_expvals, trash_expvals, lambda_trash)
+    loss = circuito.loss_autoencoder_circuito(block_norm, pixels_expvals, trash_expvals, lambda_trash)
     return loss
 
 def inicializa_encoder_probs(dev, n_qubits):
     import circuito
     circuit_enc = circuito.create_encoder_probs(dev, n_qubits)
     return circuit_enc
+
+def inicializa_decoder_probs(dev, n_qubits):
+    import circuito
+    circuit_dec = circuito.create_decoder_probs(dev, n_qubits)
+    return circuit_dec
 
 
 def coarse_grain_probs(vals, n_pixels_out):
