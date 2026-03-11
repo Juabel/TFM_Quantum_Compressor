@@ -62,7 +62,8 @@ compressed_dim = (
 compressed_rows = compressed_dim[0]   
 compressed_cols = compressed_dim[1]
 
-n_qubits = 4 # Número de qubits para representar cada bloque, tiene que ser consistente con el tamaño del bloque (2^n_qubits = block_size*block_size)
+n_qubits_total = 6 # 4 + 2 ancilla 
+n_qubits_utiles = 4
 #DEFINIR ESTO
 
 #SABER SI VA EN COLUMNAS O FILAS
@@ -73,7 +74,7 @@ log_tamaño_original = [] # Lista para almacenar los tamaños originales de las 
 log_tamaño_comprimido = [] # Lista para almacenar los tamaños comprimidos de las imágenes
 
 num_iteraciones_global = 2 # Número de iteraciones globales para el entrenamiento, es decir, cuántas veces se optimizan todos los bloques de la imagen
-num_iteraciones_bloque = 20 # Número de iteraciones locales para optimizar cada bloque individualmente
+num_iteraciones_bloque = 50 # Número de iteraciones locales para optimizar cada bloque individualmente
 
 
 optimizer_name = "Adam" # Nombre del optimizador a usar
@@ -97,7 +98,7 @@ start_time = time.time() # Tiempo de inicio para medir el tiempo total de ejecuc
 
 #block_size * block_size  # 4x4 = 16 qubits
 
-dev = qml.device("default.qubit", wires=n_qubits) # Dispositivo cuántico simulado (el de por defecto)
+dev = qml.device("default.qubit", wires=n_qubits_total) # Dispositivo cuántico simulado (el de por defecto)
 device = "cpu" # Dispositivo para PyTorch (CPU o GPU)
 
 # ------------------ Configuración variables iniciales ------------------
@@ -107,12 +108,11 @@ device = "cpu" # Dispositivo para PyTorch (CPU o GPU)
 
 
 
-params = inicializa_params.inic_params_angle(block_size, resize_dim, n_qubits, n_layers)
+params = inicializa_params.inic_params_angle(block_size, resize_dim, n_qubits_utiles, n_layers)
 
 #Inicializar circuitos (no se usan los circuitos dev y dev_dec, pero si las funciones qnode que crean)
-autoencoder_recon = funciones_estado.inicializar_autoencoder(dev, n_qubits)
-circuit_encoder_probs = funciones_estado.inicializa_encoder_probs(dev, n_qubits)
-circuit_decoder_probs = funciones_estado.inicializa_decoder_probs(dev, n_qubits)
+autoencoder_recon = funciones_estado.inicializar_autoencoder(dev)
+circuit_encoder_probs = funciones_estado.inicializa_encoder_probs(dev)
 
 
 opt = inicializa_params.crear_optimizador_angle(optimizer_name, params, tasa_de_aprendizaje)
@@ -170,9 +170,15 @@ for f in files:
                     state, block_norm, block_sum = funciones_estado.imagen_flatten(
                         img_array, i, j, block_size, device
                     )
-                    state = state * torch.pi
+
+
+                    # state = state * torch.pi
+
+
+
+
                     if(block_sum.item() == 0.0):
-                        print("Bloque de solo ceros, saltando entrenamiento local del bloque.")
+                        # print("Bloque de solo ceros, saltando entrenamiento local del bloque.")
                         continue
                     grafiquito_mse = []
                     for iter in range(num_iteraciones_bloque):
@@ -188,7 +194,7 @@ for f in files:
                         # plt.show()
 
                         # ---- ENTRENAMIENTO ----
-                        params_enc, params_dec, mse = funciones_estado.optimizar_autoencoder_bloque_angle(
+                        params_enc, params_dec, loss, mse = funciones_estado.optimizar_autoencoder_bloque_angle(
                             opt, params_enc, params_dec, state, autoencoder_recon
                         )
 
@@ -227,11 +233,15 @@ for f in files:
     for i in range(0, resize_dim[0], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (filas)
         for j in range(0, resize_dim[1], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (columnas)
             state, block_norm, block_sum = funciones_estado.imagen_flatten(img_array, i, j, block_size, device)
-            state = state * torch.pi
+
+
+            # state = state * torch.pi
+
 
             print("Estado inicial a utilizar en bloque :", state)
 
             params_enc, params_dec = params[(i, j)]
+
 
             z_vals_encoder = circuit_encoder_probs(state, params_enc)
 
@@ -247,7 +257,7 @@ for f in files:
 
             output = funciones_estado.escalar_generar_imagen_mediciones_encoder(z_vals_encoder, block_sum, output_block_size_height, output_block_size_width)
 
-            print("Output del encoder : ", output)
+
 
             compressed_img_small[row_idx:row_idx+output_block_size_height,
                              col_idx:col_idx+output_block_size_width] = output
@@ -256,17 +266,17 @@ for f in files:
 
             # Decoder 
 
-            z_vals_decoder, _ = autoencoder_recon(state, params_enc, params_dec)
+            z_vals_decoder, _, _, _, _, _ = autoencoder_recon(state, params_enc, params_dec)
             # z_vals_decoder = circuit_decoder_probs(z_vals_encoder, params_dec)
             # z_vals_decoder = funciones_estado.coarse_grain_probs(z_vals_decoder, n_qubits)
 
             z_vals_decoder = torch.stack(z_vals_decoder)
 
-            print("Z valores obtenidos por el decoder : ", z_vals_decoder)
+            # print("Z valores obtenidos por el decoder : ", z_vals_decoder)
 
             output_dec = funciones_estado.escalar_generar_imagen_mediciones_decoder(z_vals_decoder, block_sum, block_size)
 
-            print("Output del decoder : ", output_dec)
+            # print("Output del decoder : ", output_dec)
 
             reconstructed_img_small[i:(i+block_size), 
                                     j:(j+block_size)] = output_dec
@@ -337,7 +347,7 @@ funciones_estado.guardar_log(ruta_log,
                              resize_dim, 
                              compressed_dim, 
                              block_size, 
-                             n_qubits, 
+                             n_qubits_utiles, 
                              tecnica_de_encoding_ansatz, 
                              dataset, 
                              num_de_imagenes, 
@@ -359,4 +369,3 @@ with open (ruta_log, "a") as f:
 
 
 funciones_estado.graficar_MSE(train_iter_history, train_mse_history)
-

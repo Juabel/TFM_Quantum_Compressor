@@ -45,7 +45,7 @@ def inic_params_angle(block_size, resize_dim, n_qubits, n_layers):
             )
             
             params_dec = torch.nn.Parameter(
-                0.01 * torch.randn(n_layers, 2, 3)
+                0.01 * torch.randn(n_layers, n_qubits, 3)
             )
             params[(i, j)] = (params_enc, params_dec)
 

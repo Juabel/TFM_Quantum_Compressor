@@ -246,104 +246,78 @@ def create_circuit_meas(dev, n_qubits):
 #
  #   return qml.state()
 
-def create_autoencoder_recon(dev, n_qubits):
+def create_autoencoder_recon(dev):
+
     @qml.qnode(dev, interface="torch")
     def autoencoder_recon(state, params_enc, params_dec):
 
-        # 1️⃣ Embedding
-        qml.AngleEmbedding(state, wires=range(n_qubits), rotation="Y")
+        # 1️⃣ Embedding en los 4 qubits de datos
+        qml.AngleEmbedding(state * torch.pi, wires=[0,1,2,3], rotation="Y")
 
         # 2️⃣ Encoder
-        qml.StronglyEntanglingLayers(params_enc, wires=range(n_qubits))
+        qml.StronglyEntanglingLayers(params_enc, wires=[0,1,2,3])
 
-        # 3️⃣ Decoder
-        qml.StronglyEntanglingLayers(params_dec, wires=[0,1])
 
-        # 4️⃣ Medidas (SIEMPRE AL FINAL)
-        recon = [qml.expval(qml.PauliZ(i)) for i in range(n_qubits)]
-        trash = qml.expval(qml.Projector([0,0], wires=[2,3]))
+        # 4️⃣ SWAP con ancillas para reinicializar
+        qml.SWAP(wires=[2,4])
+        qml.SWAP(wires=[3,5])
 
-        return recon, trash
+        # Ahora:
+        # qubits 0,1 = latentes
+        # qubits 2,3 = |00>
+
+        # 5️⃣ Decoder sobre los 4 qubits que reconstruyen la imagen
+        qml.StronglyEntanglingLayers(params_dec, wires=[0,1,2,3])
+
+        # 6️⃣ Reconstrucción
+        recon = [qml.expval(qml.PauliZ(i)) for i in [0,1,2,3]]
+        
+        # ahora los qubits basura están en 4 y 5
+        trash = qml.expval(qml.Projector([0,0], wires=[4,5]))
+
+        latent_x0 = qml.expval(qml.PauliX(0))
+        latent_y0 = qml.expval(qml.PauliY(0))
+
+        latent_x1 = qml.expval(qml.PauliX(1))
+        latent_y1 = qml.expval(qml.PauliY(1))
+
+        return recon, trash, latent_x0, latent_y0, latent_x1, latent_y1
+
     return autoencoder_recon
 
 
-def create_encoder_probs(dev, n_qubits):
+def create_encoder_probs(dev):
     @qml.qnode(dev, interface="torch")
-    def encoder_probs(state, params):
+    def encoder_probs(state , params):
 
         # Embedding
         qml.AngleEmbedding(
-            state,
-            wires=range(n_qubits),
+            state * torch.pi,
+            wires=[0,1,2,3],
             rotation="Y"
         )
 
         # Encoder entrenado
         qml.StronglyEntanglingLayers(
             params,
-            wires=range(n_qubits),
+            wires=[0,1,2,3],
         )
 
         # Medimos SOLO latentes
-        latent_expvals = [
-            qml.expval(qml.PauliZ(0)),
-            qml.expval(qml.PauliZ(1))
-        ]
+        latent = [qml.expval(qml.PauliZ(i)) for i in [0,1]]
 
-        return latent_expvals
+        return latent
 
     return encoder_probs
-
-def create_decoder_probs(dev, n_qubits):
-    @qml.qnode(dev, interface="torch")
-    def decoder_probs(latents, params_dec):
-        # Cargamos latentes en qubits 0 y 1
-        qml.AngleEmbedding(
-            latents,
-            wires=[0,1],
-            rotation="Y"
-        )
-
-        # Qubits 2 y 3 siguen en |0>
-
-        # Aplicamos decoder
-        qml.StronglyEntanglingLayers(
-            params_dec,
-            range(n_qubits)
-        )
-
-        recon_expvals = [
-            qml.expval(qml.PauliZ(i)) for i in range(n_qubits)
-        ]
-
-        return recon_expvals
-
-    return decoder_probs
-
-
-def encoder(state, params_enc, n_qubits):
-
-    qml.AngleEmbedding(
-        state,
-        wires=range(n_qubits),
-        rotation="Y"
-    )
-
-    qml.StronglyEntanglingLayers(
-        params_enc,
-        wires=range(n_qubits)
-    )
-
-
     
 
-def loss_autoencoder_circuito(block_norm, pixel_expvals, trash_pixels_expvals, lambda_trash):
+def loss_autoencoder_circuito(block_norm, pixel_expvals, trash_pixels_expvals, lambda_trash, bloch_penalty, lambda_bloch):
 
     recon_loss = torch.mean((block_norm - pixel_expvals)**2)
 
     trash_loss = 1 - trash_pixels_expvals
     # print("Valor loss basura que tiene que ir disminuyendo:", trash_loss.item())
-    print("Probabilidad |00> basura:", trash_pixels_expvals.item())
+    print("Probabilidad |00> basura:", trash_pixels_expvals.detach().cpu().numpy())
+    print("Penalización de Bloch:", bloch_penalty.detach().cpu().numpy())
 
-
-    return recon_loss + lambda_trash * trash_loss
+    return recon_loss + lambda_trash * trash_loss + lambda_bloch * bloch_penalty, recon_loss
