@@ -3723,3 +3723,79 @@ Tamano comprimido medio: 0.000142 MB
 
 MSE medio global de todas las imagenes: 0.045799
 SSIM medio de las imagenes: 0.903195
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: Angle, Capas de Rotaciones y CNOT
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 198.49 segundos
+Ratio de compresion: 1.62
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000184 MB
+
+MSE medio global de todas las imagenes: 0.019259
+SSIM medio de las imagenes: 0.950015
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: Angle, Capas de Rotaciones y CNOT
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 131.81 segundos
+Ratio de compresion: 1.60
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000186 MB
+
+MSE medio global de todas las imagenes: 0.019464
+SSIM medio de las imagenes: 0.949362
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: Angle, Capas de Rotaciones y CNOT
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 73.50 segundos
+Ratio de compresion: 1.49
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000199 MB
+
+MSE medio global de todas las imagenes: 0.028802
+SSIM medio de las imagenes: 0.926565
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 4
+Tecnica de encoding y de ansatz: Angle, Capas de Rotaciones y CNOT
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 56.39 segundos
+Ratio de compresion: 1.48
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000201 MB
+
+MSE medio global de todas las imagenes: 0.028688
+SSIM medio de las imagenes: 0.926345

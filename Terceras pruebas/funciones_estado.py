@@ -289,12 +289,15 @@ def graficar_MSE(train_iter_history, train_mse_history):
     plt.show()
 
 
-def optimizar_autoencoder_bloque_angle(opt, params_enc, params_dec, state, autoencoder_recon):
+def optimizar_autoencoder_bloque_angle(opt, params_enc, params_dec, state, autoencoder_recon, autoencoder_recon_dagger, dagger):
 
     opt.zero_grad()
 
     # ---------- Autoencoder ----------
-    recon_expvals, trash_expvals, latent_x0, latent_y0, latent_x1, latent_y1 = apply_autoencoder_recon(state, params_enc, params_dec, autoencoder_recon)
+    if dagger == "True":
+        recon_expvals, trash_expvals, latent_x0, latent_y0, latent_x1, latent_y1 = apply_autoencoder_recon(state, params_enc, params_dec, autoencoder_recon_dagger)
+    else:
+        recon_expvals, trash_expvals, latent_x0, latent_y0, latent_x1, latent_y1 = apply_autoencoder_recon(state, params_enc, params_dec, autoencoder_recon)
 
     # ---------- Loss ----------
     loss, recon_loss = loss_autoencoder(state, recon_expvals, trash_expvals, lambda_trash=0.9, latent_x0=latent_x0, latent_y0=latent_y0, latent_x1=latent_x1, latent_y1=latent_y1, lambda_bloch=0.5) 
@@ -305,6 +308,10 @@ def optimizar_autoencoder_bloque_angle(opt, params_enc, params_dec, state, autoe
     opt.step()
 
     return params_enc, params_dec, loss.item(), recon_loss.item()
+
+
+
+
 
 
 def apply_autoencoder_recon(state, params_encoder, params_decoder, autoencoder_recon):
@@ -318,6 +325,11 @@ def apply_autoencoder_recon(state, params_encoder, params_decoder, autoencoder_r
 def inicializar_autoencoder(dev):
     import circuito
     autoencoder = circuito.create_autoencoder_recon(dev)
+    return autoencoder
+
+def inicializar_autoencoder_dagger(dev):
+    import circuito
+    autoencoder = circuito.create_autoencoder_recon_dagger(dev)
     return autoencoder
 
 def loss_autoencoder(block_norm, expvals, trash_expvals, lambda_trash, latent_x0, latent_y0, latent_x1, latent_y1, lambda_bloch):

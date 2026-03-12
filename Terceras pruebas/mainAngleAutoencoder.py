@@ -74,7 +74,7 @@ log_tamaño_original = [] # Lista para almacenar los tamaños originales de las 
 log_tamaño_comprimido = [] # Lista para almacenar los tamaños comprimidos de las imágenes
 
 num_iteraciones_global = 2 # Número de iteraciones globales para el entrenamiento, es decir, cuántas veces se optimizan todos los bloques de la imagen
-num_iteraciones_bloque = 50 # Número de iteraciones locales para optimizar cada bloque individualmente
+num_iteraciones_bloque = 20 # Número de iteraciones locales para optimizar cada bloque individualmente
 
 
 optimizer_name = "Adam" # Nombre del optimizador a usar
@@ -112,7 +112,10 @@ params = inicializa_params.inic_params_angle(block_size, resize_dim, n_qubits_ut
 
 #Inicializar circuitos (no se usan los circuitos dev y dev_dec, pero si las funciones qnode que crean)
 autoencoder_recon = funciones_estado.inicializar_autoencoder(dev)
+autoencoder_recon_dagger = funciones_estado.inicializar_autoencoder_dagger(dev)
 circuit_encoder_probs = funciones_estado.inicializa_encoder_probs(dev)
+
+dagger = "True" # Si se quiere usar el autoencoder dagger para la parte del decoder, es decir, usar el mismo circuito pero con los parámetros en orden inverso y con los ángulos negados. Esto se hace para ver si el entrenamiento del encoder es suficiente para que el decoder aprenda a reconstruir la imagen sin necesidad de entrenar específicamente el decoder, lo cual sería una ventaja importante en términos de eficiencia de entrenamiento.
 
 
 opt = inicializa_params.crear_optimizador_angle(optimizer_name, params, tasa_de_aprendizaje)
@@ -139,7 +142,7 @@ idx = 0
 num_imagen = 0
 for f in files:
     num_imagen += 1
-    print(f"Reconstruyendo imagen comprimida {num_imagen}/{len(files)}...")
+    # print(f"Reconstruyendo imagen comprimida {num_imagen}/{len(files)}...")
     reconstructed_blocks = []
     # img = Image.open(f).resize(resize_dim) # Redimensionar
     img = Image.open(f)
@@ -153,10 +156,10 @@ for f in files:
 
 
     if entrenamiento == True:
-        print("\n=== ENTRENAMIENTO AUTOENCODER ===")
+        # print("\n=== ENTRENAMIENTO AUTOENCODER ===")
 
         for epoch in range(num_iteraciones_global):
-            print(f"\nEpoch {epoch+1}/{num_iteraciones_global}")
+            # print(f"\nEpoch {epoch+1}/{num_iteraciones_global}")
 
             mse_epoch = []
             iter_epoch = []
@@ -165,7 +168,7 @@ for f in files:
             for i in range(0, resize_dim[0], block_size):
                 for j in range(0, resize_dim[1], block_size):
                     bloque_num+=1
-                    print(f"\nBloque {bloque_num}/{(resize_dim[0]*resize_dim[1])/(block_size*block_size)}")
+                    # print(f"\nBloque {bloque_num}/{(resize_dim[0]*resize_dim[1])/(block_size*block_size)}")
 
                     state, block_norm, block_sum = funciones_estado.imagen_flatten(
                         img_array, i, j, block_size, device
@@ -195,28 +198,28 @@ for f in files:
 
                         # ---- ENTRENAMIENTO ----
                         params_enc, params_dec, loss, mse = funciones_estado.optimizar_autoencoder_bloque_angle(
-                            opt, params_enc, params_dec, state, autoencoder_recon
+                            opt, params_enc, params_dec, state, autoencoder_recon, autoencoder_recon_dagger, dagger
                         )
 
                         params[(i, j)] = (params_enc, params_dec)
 
-                        print(f" Iteración {iter+1}/{num_iteraciones_bloque} - MSE: {mse:.6f}")
+                        # print(f" Iteración {iter+1}/{num_iteraciones_bloque} - MSE: {mse:.6f}")
 
                         grafiquito_mse.append(mse)
 
                         if iter == 3 and mse < 1e-6:
-                            print("MSE muy bajo, saliendo del entrenamiento local del bloque.")
+                            # print("MSE muy bajo, saliendo del entrenamiento local del bloque.")
                             break
 
                     #Grafico rapido y simple
-                    para = para + 1
-                    if para <= 3:
-                        plt.figure()
-                        plt.plot(grafiquito_mse)
-                        plt.xlabel("Iteración")
-                        plt.ylabel("MSE")
-                        plt.title("Evolución del MSE durante el entrenamiento")
-                        plt.show()
+                    # para = para + 1
+                    # if para <= 3:
+                    #     plt.figure()
+                    #     plt.plot(grafiquito_mse)
+                    #     plt.xlabel("Iteración")
+                    #     plt.ylabel("MSE")
+                    #     plt.title("Evolución del MSE durante el entrenamiento")
+                    #     plt.show()
 
                     global_iter += 1
                     if(block_sum.item() == 0.0):
@@ -228,7 +231,7 @@ for f in files:
 
 
 
-    print("\n=== RECONSTRUCCIÓN ===")
+    # print("\n=== RECONSTRUCCIÓN ===")
 
     for i in range(0, resize_dim[0], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (filas)
         for j in range(0, resize_dim[1], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (columnas)
@@ -238,7 +241,7 @@ for f in files:
             # state = state * torch.pi
 
 
-            print("Estado inicial a utilizar en bloque :", state)
+            # print("Estado inicial a utilizar en bloque :", state)
 
             params_enc, params_dec = params[(i, j)]
 
@@ -265,8 +268,10 @@ for f in files:
 
 
             # Decoder 
-
-            z_vals_decoder, _, _, _, _, _ = autoencoder_recon(state, params_enc, params_dec)
+            if dagger == "True":
+                z_vals_decoder, _, _, _, _, _ = autoencoder_recon_dagger(state, params_enc, params_dec)
+            else:
+                z_vals_decoder, _, _, _, _, _ = autoencoder_recon(state, params_enc, params_dec)
             # z_vals_decoder = circuit_decoder_probs(z_vals_encoder, params_dec)
             # z_vals_decoder = funciones_estado.coarse_grain_probs(z_vals_decoder, n_qubits)
 
@@ -291,7 +296,7 @@ for f in files:
             ])
 
                 mse = qml.math.mean((state_ordenado - output01) ** 2)
-            print(f"\nMSE: {mse:.6f}")
+            # print(f"\nMSE: {mse:.6f}")
 
 
             mse_por_bloque.append(mse)
@@ -311,8 +316,8 @@ for f in files:
     #     show_values=True
     # )
 
-    funciones_estado.graficar(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small)
-    funciones_estado.prueba(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small, block_size)
+    # funciones_estado.graficar(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small)
+    # funciones_estado.prueba(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small, block_size)
 
 
     inicial_original_disk_size = funciones_estado.obtener_tamaño(f)
@@ -324,7 +329,7 @@ for f in files:
     log_tamaño_original.append(original_disk_size)
     log_tamaño_comprimido.append(compressed_disk_size)
     log_ratios.append(disk_ratio)
-    print(f"Imagen {num_imagen}: Tamano original = {original_disk_size:.6f} MB, Tamaño comprimido = {compressed_disk_size:.6f} MB, Ratio de compresion = {disk_ratio:.2f}x")
+    # print(f"Imagen {num_imagen}: Tamano original = {original_disk_size:.6f} MB, Tamaño comprimido = {compressed_disk_size:.6f} MB, Ratio de compresion = {disk_ratio:.2f}x")
     
 # ------------------ Métricas ------------------
 
@@ -341,7 +346,7 @@ average_tamaño_comprimido = np.mean(log_tamaño_comprimido) if log_tamaño_comp
 
 end_time = time.time() # Tiempo de fin para medir el tiempo total de ejecución
 tiempo_total = end_time - start_time
-print(f"Tiempo total: {tiempo_total:.2f} segundos")
+# print(f"Tiempo total: {tiempo_total:.2f} segundos")
 
 funciones_estado.guardar_log(ruta_log, 
                              resize_dim, 
@@ -368,4 +373,4 @@ with open (ruta_log, "a") as f:
     f.write(f"SSIM medio de las imagenes: {ssim_val:.6f}\n")
 
 
-funciones_estado.graficar_MSE(train_iter_history, train_mse_history)
+# funciones_estado.graficar_MSE(train_iter_history, train_mse_history)

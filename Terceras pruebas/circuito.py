@@ -285,6 +285,49 @@ def create_autoencoder_recon(dev):
 
     return autoencoder_recon
 
+def create_autoencoder_recon_dagger(dev):
+
+    @qml.qnode(dev, interface="torch")
+    def autoencoder_recon(state, params_enc, params_dec):
+
+        # 1️⃣ Embedding en los 4 qubits de datos
+        qml.AngleEmbedding(state * torch.pi, wires=[0,1,2,3], rotation="Y")
+
+        # 2️⃣ Encoder
+        qml.StronglyEntanglingLayers(params_enc, wires=[0,1,2,3])
+
+
+        # 4️⃣ SWAP con ancillas para reinicializar
+        qml.SWAP(wires=[2,4])
+        qml.SWAP(wires=[3,5])
+
+        # Ahora:
+        # qubits 0,1 = latentes
+        # qubits 2,3 = |00>
+
+        # 5️⃣ Decoder sobre los 4 qubits que reconstruyen la imagen
+        qml.adjoint(qml.StronglyEntanglingLayers)(params_enc, wires=[0,1,2,3])
+
+        # 6️⃣ Reconstrucción
+        recon = [qml.expval(qml.PauliZ(i)) for i in [0,1,2,3]]
+        
+        # ahora los qubits basura están en 4 y 5
+        trash = qml.expval(qml.Projector([0,0], wires=[4,5]))
+
+        latent_x0 = qml.expval(qml.PauliX(0))
+        latent_y0 = qml.expval(qml.PauliY(0))
+
+        latent_x1 = qml.expval(qml.PauliX(1))
+        latent_y1 = qml.expval(qml.PauliY(1))
+
+        return recon, trash, latent_x0, latent_y0, latent_x1, latent_y1
+
+    return autoencoder_recon
+
+
+
+
+
 
 def create_encoder_probs(dev):
     @qml.qnode(dev, interface="torch")
@@ -317,7 +360,7 @@ def loss_autoencoder_circuito(block_norm, pixel_expvals, trash_pixels_expvals, l
 
     trash_loss = 1 - trash_pixels_expvals
     # print("Valor loss basura que tiene que ir disminuyendo:", trash_loss.item())
-    print("Probabilidad |00> basura:", trash_pixels_expvals.detach().cpu().numpy())
-    print("Penalización de Bloch:", bloch_penalty.detach().cpu().numpy())
+    # print("Probabilidad |00> basura:", trash_pixels_expvals.detach().cpu().numpy())
+    # print("Penalización de Bloch:", bloch_penalty.detach().cpu().numpy())
 
     return recon_loss + lambda_trash * trash_loss + lambda_bloch * bloch_penalty, recon_loss
