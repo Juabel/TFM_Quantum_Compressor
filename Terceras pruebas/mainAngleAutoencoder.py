@@ -74,7 +74,7 @@ log_tamaño_original = [] # Lista para almacenar los tamaños originales de las 
 log_tamaño_comprimido = [] # Lista para almacenar los tamaños comprimidos de las imágenes
 
 num_iteraciones_global = 2 # Número de iteraciones globales para el entrenamiento, es decir, cuántas veces se optimizan todos los bloques de la imagen
-num_iteraciones_bloque = 20 # Número de iteraciones locales para optimizar cada bloque individualmente
+num_iteraciones_bloque = 50 # Número de iteraciones locales para optimizar cada bloque individualmente
 
 
 optimizer_name = "Adam" # Nombre del optimizador a usar
@@ -91,6 +91,7 @@ entrenamiento = True # Si se quiere entrenar el autoencoder o solo hacer la reco
 
 # CHECKEAR EL ENTRENAMIENTO DEL ROTACIONAL EN EL DECODER
 mse_por_bloque = [] # Lista para almacenar los MSE por bloque durante la reconstrucción
+mse_por_bloque_intensity = []
 
 
 
@@ -117,7 +118,6 @@ circuit_encoder_probs = funciones_estado.inicializa_encoder_probs(dev)
 
 dagger = "True" # Si se quiere usar el autoencoder dagger para la parte del decoder, es decir, usar el mismo circuito pero con los parámetros en orden inverso y con los ángulos negados. Esto se hace para ver si el entrenamiento del encoder es suficiente para que el decoder aprenda a reconstruir la imagen sin necesidad de entrenar específicamente el decoder, lo cual sería una ventaja importante en términos de eficiencia de entrenamiento.
 
-
 opt = inicializa_params.crear_optimizador_angle(optimizer_name, params, tasa_de_aprendizaje)
 
 
@@ -140,6 +140,7 @@ para = 0
 
 idx = 0
 num_imagen = 0
+lista_mse_final_bloque = []
 for f in files:
     num_imagen += 1
     # print(f"Reconstruyendo imagen comprimida {num_imagen}/{len(files)}...")
@@ -170,15 +171,9 @@ for f in files:
                     bloque_num+=1
                     # print(f"\nBloque {bloque_num}/{(resize_dim[0]*resize_dim[1])/(block_size*block_size)}")
 
-                    state, block_norm, block_sum = funciones_estado.imagen_flatten(
+                    state, block_norm, block_sum, _ = funciones_estado.imagen_flatten(
                         img_array, i, j, block_size, device
                     )
-
-
-                    # state = state * torch.pi
-
-
-
 
                     if(block_sum.item() == 0.0):
                         # print("Bloque de solo ceros, saltando entrenamiento local del bloque.")
@@ -205,6 +200,10 @@ for f in files:
 
                         # print(f" Iteración {iter+1}/{num_iteraciones_bloque} - MSE: {mse:.6f}")
 
+                        # Dejamos el entrenamiento cuando el MSE es menor que un umbral, para evitar que luego se equivoque y empiece a subir el MSE por sobreentrenamiento
+                        # if iter > 0 and mse < 0.07:
+                        #     print("MSE menor que 0.07, saliendo del entrenamiento local del bloque.")
+                        #     break
                         grafiquito_mse.append(mse)
 
                         if iter == 3 and mse < 1e-6:
@@ -222,10 +221,9 @@ for f in files:
                     #     plt.show()
 
                     global_iter += 1
-                    if(block_sum.item() == 0.0):
-                        mse = 0.0
                     mse_epoch.append(mse)
                     iter_epoch.append(global_iter)
+
             train_mse_history.append(mse_epoch)
             train_iter_history.append(iter_epoch)
 
@@ -235,11 +233,7 @@ for f in files:
 
     for i in range(0, resize_dim[0], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (filas)
         for j in range(0, resize_dim[1], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (columnas)
-            state, block_norm, block_sum = funciones_estado.imagen_flatten(img_array, i, j, block_size, device)
-
-
-            # state = state * torch.pi
-
+            state, block_norm, block_sum, _ = funciones_estado.imagen_flatten(img_array, i, j, block_size, device)
 
             # print("Estado inicial a utilizar en bloque :", state)
 
@@ -257,6 +251,7 @@ for f in files:
             row_idx = (i // block_size) * output_block_size_height
             col_idx = (j // block_size) * output_block_size_width
 
+            z_vals_encoder = (1 - z_vals_encoder) / 2
 
             output = funciones_estado.escalar_generar_imagen_mediciones_encoder(z_vals_encoder, block_sum, output_block_size_height, output_block_size_width)
 
@@ -279,6 +274,7 @@ for f in files:
 
             # print("Z valores obtenidos por el decoder : ", z_vals_decoder)
 
+            z_vals_decoder = (1 - z_vals_decoder) / 2
             output_dec = funciones_estado.escalar_generar_imagen_mediciones_decoder(z_vals_decoder, block_sum, block_size)
 
             # print("Output del decoder : ", output_dec)
@@ -288,19 +284,31 @@ for f in files:
             
             if(block_sum.item() == 0.0):
                 mse = 0.0
+                mse_intensity = 0.0
             else:
-                output01 = output_dec / 255.0
-                state_ordenado = torch.tensor([
-                [state[0], state[2]],  # arriba izquierda, arriba derecha
-                [state[1], state[3]]   # abajo izquierda, abajo derecha
-            ])
+                #MSE SIN INTENSDIAD PIXELES
+                z_vals_decoder = z_vals_decoder.flatten()
 
-                mse = qml.math.mean((state_ordenado - output01) ** 2)
+                # print("Estado original a utilizar en bloque : ", state)
+                # print("Output del decoder a utilizar en bloque : ", ouput01_flatten)
+                # print("Output del decoder a utilizar en bloque : ", prueba_flatten)
+                mse = torch.mean((state.flatten() - z_vals_decoder)**2)
+
+
+
+                #MSE CON INTENSIDAD PIXELES
+                output01 = output_dec / 255.0
+                ouput01_flatten = output01.flatten()
+                # mse_intensity = qml.math.mean((state - ouput01_flatten) ** 2)
+                mse_intensity = torch.mean((state - ouput01_flatten)**2)
+
+
             # print(f"\nMSE: {mse:.6f}")
 
-
+            # print("\nMeto a la lista el mse ", mse)
             mse_por_bloque.append(mse)
-    
+            mse_por_bloque_intensity.append(mse_intensity)
+
             idx += 1
 
     # Guardar las imágenes resultantes
@@ -334,8 +342,15 @@ for f in files:
 # ------------------ Métricas ------------------
 
 #Media de MSE global
+
 mse_nonzero = [x for x in mse_por_bloque if x != 0.0]
 average_mse = sum(mse_nonzero) / len(mse_nonzero) if mse_nonzero else 1.0
+
+
+#Media de MSE con intensidad de píxeles
+mse_intensity_nonzero = [x for x in mse_por_bloque_intensity if x != 0.0]
+average_mse_intensity = sum(mse_intensity_nonzero) / len(mse_intensity_nonzero) if mse_intensity_nonzero else 1.0
+
 
 # Media de ratios de compresión
 average_disk_ratio = np.mean(log_ratios) if log_ratios else 0
@@ -368,9 +383,16 @@ reconstructed = reconstructed_img_small.astype(np.uint8)
 ssim_val = ssim(original, reconstructed, data_range=255)
 
 
+#Media de MSE de los bloques finales quitando los ceros
+
+
+
 with open (ruta_log, "a") as f:
-    f.write(f"\nMSE medio global de todas las imagenes: {average_mse:.6f}\n")
+    f.write(f"\nMSE medio global de la imagen: {average_mse:.6f}\n")
     f.write(f"SSIM medio de las imagenes: {ssim_val:.6f}\n")
+    f.write(f"MSE medio con intensidad de pixeles: {average_mse_intensity:.6f}\n")
+
+
 
 
 # funciones_estado.graficar_MSE(train_iter_history, train_mse_history)

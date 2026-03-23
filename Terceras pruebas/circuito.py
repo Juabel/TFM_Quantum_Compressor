@@ -32,7 +32,7 @@ def single_qubit_embedding(state, params_rot, k_qubits=1, rotation_type="RY"):
 #REVISAR SINGLE QUBIT ENCODING, ESTO NO ESTA PROBADO AUN
 
 
-def dense_angle_embedding(state, params_rot, k_qubits=3, rotation_type="RY"):
+def dense_angle_embedding(state, k_qubits):
     # Seleccionamos los primeros k_qubits
     qubits = list(range(k_qubits))
     
@@ -46,16 +46,12 @@ def dense_angle_embedding(state, params_rot, k_qubits=3, rotation_type="RY"):
         end = min(start + chunk_size, len(state))
         angles = state[start:end]
 
-        # Aplicar todas las rotaciones de ese segmento al mismo qubit
-        for angle in angles:
-            if rotation_type == "RY":
+        # Aplicar rotaciones alternando RY y RZ
+        for i, angle in enumerate(angles):
+            if i % 2 == 0:
                 qml.RY(angle, wires=q)
-            elif rotation_type == "RX":
-                qml.RX(angle, wires=q)
-            elif rotation_type == "RZ":
-                qml.RZ(angle, wires=q)
             else:
-                raise ValueError("rotation_type must be RX, RY, or RZ")
+                qml.RZ(angle, wires=q)
 
 #REVISAR DENSE ANGLE ENCODING, ESTO NO ESTA PROBADO AUN
 
@@ -236,15 +232,99 @@ def create_circuit_meas(dev, n_qubits):
     return circuit_meas
 
 
-#def decoder_state(compressed_features, params_dec):
-#    for module_name, num_layers in tecnica_de_decoding_ansatz.items():
-#
- #       module_fn = CIRCUIT_MODULES[module_name]
-#
- #       for _ in range(num_layers):
-  #          module_fn(compressed_features, params_dec, n_qubits_dec)
-#
- #   return qml.state()
+def create_autoencoder_recon_ampl(dev):
+
+    @qml.qnode(dev, interface="torch")
+    def autoencoder_recon_ampl(state, params_enc, params_dec):
+
+        # 1️⃣ Embedding en los 4 qubits de datos
+        qml.AmplitudeEmbedding(state, wires=[0,1], normalize=True)
+        # qml.AmplitudeEmbedding(state, wires=[0,1], normalize=False)
+        # 2️⃣ Encoder
+        qml.StronglyEntanglingLayers(params_enc, wires=[0,1])
+
+
+        # 4️⃣ SWAP con ancillas para reinicializar
+        qml.SWAP(wires=[1,2])
+
+        # 5️⃣ Decoder sobre los 4 qubits que reconstruyen la imagen
+        qml.StronglyEntanglingLayers(params_dec, wires=[0,1])
+
+        # 6️⃣ Reconstrucción con la raiz cuadrada de las probabilidades, es decir, las amplitudes
+        probs = qml.probs(wires=[0,1])
+        
+        # ahora los qubits basura están en 4 y 5
+        trash = qml.expval(qml.Projector([0], wires=[2]))
+
+        return probs, trash
+
+    return autoencoder_recon_ampl
+
+
+def create_autoencoder_recon_ampl_dagger(dev):
+
+    @qml.qnode(dev, interface="torch")
+    def autoencoder_recon_ampl(state, params_enc, params_dec):
+
+        # 1️⃣ Embedding en los 4 qubits de datos
+        qml.AmplitudeEmbedding(state, wires=[0,1], normalize=True)
+        # qml.AmplitudeEmbedding(state, wires=[0,1], normalize=False)
+        # 2️⃣ Encoder
+        qml.StronglyEntanglingLayers(params_enc, wires=[0,1])
+
+
+        # 4️⃣ SWAP con ancillas para reinicializar
+        qml.SWAP(wires=[1,2])
+
+        # 5️⃣ Decoder sobre los 4 qubits que reconstruyen la imagen
+        qml.adjoint(qml.StronglyEntanglingLayers)(params_enc, wires=[0,1])
+
+        # 6️⃣ Reconstrucción con las probabilidades
+        probs = qml.probs(wires=[0,1])
+        
+        # ahora los qubits basura están en 2
+        trash = qml.expval(qml.Projector([0], wires=[2]))
+
+        return probs, trash
+
+    return autoencoder_recon_ampl
+
+
+
+def create_encoder_probs_ampl(dev):
+    @qml.qnode(dev, interface="torch")
+    def encoder_probs(state , params):
+
+        # Embedding
+        qml.AmplitudeEmbedding(state, wires=[0,1], normalize=True)
+        # qml.AmplitudeEmbedding(state, wires=[0,1], normalize=False)
+
+        # Encoder entrenado
+        qml.StronglyEntanglingLayers(params, wires=[0,1])
+
+        # Medimos SOLO latentes
+        probs = qml.probs(wires=[0])
+
+
+        return probs
+
+    return encoder_probs
+
+def loss_autoencoder_circuito_ampl(state, pixels_recon, trash, lambda_trash):
+
+    recon_loss = torch.mean((state - pixels_recon)**2)
+
+    trash_loss = 1 - trash
+    # print("Valor loss basura que tiene que ir disminuyendo:", trash_loss.item())
+    print("Probabilidad |00> basura:", trash.detach().cpu().numpy())
+    return recon_loss + lambda_trash * trash_loss, recon_loss
+
+
+
+
+
+
+#################### FUNCIONES USADAS PARA ANGLE ENCODING ####################
 
 def create_autoencoder_recon(dev):
 
@@ -290,7 +370,6 @@ def create_autoencoder_recon_dagger(dev):
     @qml.qnode(dev, interface="torch")
     def autoencoder_recon(state, params_enc, params_dec):
 
-        # 1️⃣ Embedding en los 4 qubits de datos
         qml.AngleEmbedding(state * torch.pi, wires=[0,1,2,3], rotation="Y")
 
         # 2️⃣ Encoder
@@ -326,9 +405,6 @@ def create_autoencoder_recon_dagger(dev):
 
 
 
-
-
-
 def create_encoder_probs(dev):
     @qml.qnode(dev, interface="torch")
     def encoder_probs(state , params):
@@ -356,7 +432,7 @@ def create_encoder_probs(dev):
 
 def loss_autoencoder_circuito(block_norm, pixel_expvals, trash_pixels_expvals, lambda_trash, bloch_penalty, lambda_bloch):
 
-    recon_loss = torch.mean((block_norm - pixel_expvals)**2)
+    recon_loss = torch.mean((block_norm - pixel_expvals.flatten())**2)
 
     trash_loss = 1 - trash_pixels_expvals
     # print("Valor loss basura que tiene que ir disminuyendo:", trash_loss.item())

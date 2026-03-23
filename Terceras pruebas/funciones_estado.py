@@ -17,11 +17,12 @@ def imagen_flatten(img_array, i, j, block_size, device):
     block_sum = block_norm.mean()
 
     scaled_block_sum = block_sum * 2  # ahora valores <1 → baja intensidad, >1 → alta intensidad
-    # scaled_block_sum = block_sum
+
+    # block_flat = block_norm.T.reshape(-1)
+    block_flat = block_norm.reshape(-1)
 
 
-
-    block_flat = block_norm.T.reshape(-1)
+    
 
     # --- PROTECCIÓN CASO VECTOR CERO ---
     norm = block_flat.norm()
@@ -31,7 +32,7 @@ def imagen_flatten(img_array, i, j, block_size, device):
 
     scaled_block_sum_torch = scaled_block_sum.detach().to(device)
 
-    return block_flat, block_norm, scaled_block_sum_torch
+    return block_flat, block_norm, scaled_block_sum_torch, norm
     # return block_flat, block_norm, scaled_block_sum
 
 # block_flat = El bloque normalizado en 255 para usar en el encoder
@@ -76,50 +77,15 @@ def escalar_generar_imagen_mediciones_decoder(probs, block_sum, block_size):
     return img_255_uint8
 
 
-def loss_autoencoder_block(alpha, betta, block_norm, probs, block_size):
-    import circuito
-    
-    # Reconstrucción
-
-
-    #CORREGIR Y CAMBIAR ESTO AHORA CON STRONGLYENTANGLED Y EL LOSS HACERLO EN EL CIRCUITO.PY PARA NO TENER QUE HACER UN LOSS DIFERENCIABLE
-
-
-
-
-    reconstructed = reconstruccion_bloque_decoder(probs, block_size).to(dtype=block_norm.dtype)
-    # Añadimos batch y canal
-    # reconstructed_ = reconstructed.unsqueeze(0).unsqueeze(0)
-    # block_norm_ = block_norm.unsqueeze(0).unsqueeze(0)
-
-    # --- MSE diferenciable ---
-    mse_val = circuito.loss_autoencoder_amplitude(reconstructed, block_norm)
-
-
-    # --- SSIM diferenciable ---
-    # ssim_fn = StructuralSimilarityIndexMeasure(data_range=1.0).to(reconstructed_.device)
-    # ssim_val = ssim_fn(reconstructed_, block_norm_)
-
-    # --- Loss conjunta ---
-    loss_val = alpha * mse_val
-    # loss_val = alpha * mse_val + betta * (1 - ssim_val)
-
-    return loss_val
-
 def reconstruccion_bloque_encoder(z_vals, block_sum, output_block_size_height, output_block_size_width):
-
-
     if not torch.is_tensor(block_sum):
         block_sum = torch.tensor(block_sum, dtype=z_vals.dtype)
 
 
     z_vals = z_vals.clone().detach()
-
-
     # z_vals: (2,)
-    z_vals_scaled = (1 - z_vals) / 2
-    z_vals255 = z_vals_scaled * 255.0
-    z_vals_scaled_255 = z_vals255 * block_sum
+    z_vals_scaled_255 = z_vals * 255.0
+    z_vals_scaled_255 = z_vals_scaled_255 * block_sum
     z_vals_scaled_255 = torch.clamp(z_vals_scaled_255, min=0.0, max=255.0)
 
 
@@ -130,48 +96,35 @@ def reconstruccion_bloque_encoder(z_vals, block_sum, output_block_size_height, o
 def reconstruccion_bloque_decoder(z_vals, block_size):
     # z_vals: (4,)
     # return z_vals.reshape(block_size, block_size)
-
-
-
-
-    #PROBAR
-
-    z_vals = (1 - (z_vals)) / 2  # Escalado a [0,1]
     # z_vals = ((z_vals) + 1) / 2  # Escalado a [0,1]
 
-
-
-
-    return z_vals.reshape(block_size, block_size).T
+    # return z_vals.reshape(block_size, block_size).T
+    return z_vals.reshape(block_size, block_size)
     #return qml.numpy.reshape(z_vals, (4, 4), order='F')
 
 
-def optimizar_autoencoder_bloque(alpha, betta, opt, params, state, block_norm, circuit_enc, circuit_dec, block_size):
+def optimizar_autoencoder_bloque(opt, params, state, autoencoder_circuit, autoencoder_circuit_dagger, dagger, norm):
 
     opt.zero_grad()
 
     params_enc, params_dec = params
-    # ---------- Encoder ----------
-    z_vals = medicion(state, params_enc, circuit_enc)
 
-    # ---------- Decoder ----------
-    probs = medicion_decoder(z_vals, params_dec, circuit_dec)
+
+    if dagger == "True":
+        recon, trash = apply_autoencoder_recon_ampl(state, params_enc, params_dec, autoencoder_circuit_dagger)
+    else:
+        recon, trash= apply_autoencoder_recon_ampl(state, params_enc, params_dec, autoencoder_circuit)
+
 
     # ---------- Loss ----------
-    loss = loss_autoencoder_block(
-        alpha,
-        betta,
-        block_norm,
-        probs,
-        block_size
-    )
+    loss, recon_loss = loss_autoencoder_ampl(state, recon, trash, norm, lambda_trash=0.9)
 
     # ---------- Backprop ---------
 
     loss.backward()
     opt.step()
 
-    return (params_enc, params_dec), loss.item()
+    return (params_enc, params_dec), loss.item(), recon_loss.item()
 
 
 def inicializar_circuitos(dev, dev_dec, n_qubits):
@@ -289,6 +242,49 @@ def graficar_MSE(train_iter_history, train_mse_history):
     plt.show()
 
 
+def inicializar_autoencoder_amplitude(dev):
+    import circuito
+    autoencoder = circuito.create_autoencoder_recon_ampl(dev)
+    return autoencoder
+def inicializar_autoencoder_amplitude_dagger(dev):
+    import circuito
+    autoencoder = circuito.create_autoencoder_recon_ampl_dagger(dev)
+    return autoencoder
+def inicializa_encoder_probs_ampl(dev):
+    import circuito
+    circuit_enc = circuito.create_encoder_probs_ampl(dev)
+    return circuit_enc
+
+
+def apply_autoencoder_recon_ampl(state, params_encoder, params_decoder, autoencoder_recon_ampl):
+
+    expvals, trash_expvals = autoencoder_recon_ampl(state, params_encoder, params_decoder) 
+
+    return expvals, trash_expvals
+
+
+def loss_autoencoder_ampl(state, recon, trash, norm, lambda_trash):
+    import circuito
+    recon = torch.sqrt(recon)
+    # recon = torch.sqrt(recon) * norm  # Escalado a la intensidad original del bloque
+    state = state.flatten()
+
+    loss, recon_loss = circuito.loss_autoencoder_circuito_ampl(state, recon, trash, lambda_trash)
+    return loss, recon_loss
+
+
+
+
+
+
+
+
+
+
+
+#################### FUNCIONES USADAS PARA ANGLE ENCODING ####################
+
+
 def optimizar_autoencoder_bloque_angle(opt, params_enc, params_dec, state, autoencoder_recon, autoencoder_recon_dagger, dagger):
 
     opt.zero_grad()
@@ -310,16 +306,11 @@ def optimizar_autoencoder_bloque_angle(opt, params_enc, params_dec, state, autoe
     return params_enc, params_dec, loss.item(), recon_loss.item()
 
 
-
-
-
-
 def apply_autoencoder_recon(state, params_encoder, params_decoder, autoencoder_recon):
 
     expvals, trash_expvals, latent_x0, latent_y0, latent_x1, latent_y1 = autoencoder_recon(state, params_encoder, params_decoder)  # ← SIN np.array
 
     return expvals, trash_expvals, latent_x0, latent_y0, latent_x1, latent_y1
-
 
 
 def inicializar_autoencoder(dev):
@@ -345,7 +336,3 @@ def inicializa_encoder_probs(dev):
     import circuito
     circuit_enc = circuito.create_encoder_probs(dev)
     return circuit_enc
-
-def coarse_grain_probs(vals, n_pixels_out):
-    vals = vals.reshape(n_pixels_out, -1)
-    return vals.sum(dim=1)
