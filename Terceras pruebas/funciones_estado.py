@@ -52,41 +52,50 @@ def medicion_decoder(z_vals, params_dec, circuit_dec):
 
     return z_vals
 
-def escalar_generar_imagen_mediciones_encoder(probs, block_sum, output_block_size_height, output_block_size_width):
-    return reconstruccion_bloque_encoder(probs, block_sum, output_block_size_height, output_block_size_width)  # forma original, ej: 2x2 o 4x4
+def escalar_generar_imagen_mediciones_encoder(probs, output_block_size_height, output_block_size_width, norm, basis):
+    return reconstruccion_bloque_encoder(probs, output_block_size_height, output_block_size_width, norm, basis)  # forma original, ej: 2x2 o 4x4
 
-def escalar_generar_imagen_mediciones_decoder(probs, block_sum, block_size):
-    if not torch.is_tensor(block_sum):
-        block_sum = torch.tensor(
-            block_sum, dtype=probs.dtype, device=probs.device
-        )
+def escalar_generar_imagen_mediciones_decoder(probs, block_size, norm, basis):
+    # if not torch.is_tensor(block_sum):
+    #     block_sum = torch.tensor(
+    #         block_sum, dtype=probs.dtype, device=probs.device
+    #     )
     # Reconstrucción del bloque
     img = reconstruccion_bloque_decoder(probs, block_size)
 
     # Pasar a [0,255]
+
+    if basis == "False":
+        img = img * norm
     img_255 = img * 255.0
+
 
     # ⚠️ SOLO para visualización (rompe gradiente)
 
-
-
+    img_255 = torch.clamp(img_255, min=0.0, max=255.0)
     img_255_uint8 = img_255.to(torch.uint8)
-    img_255_uint8 = img_255_uint8 * block_sum
-    img_255_uint8 = torch.clamp(img_255_uint8, min=0.0, max=255.0)
+    # img_255_uint8 = img_255_uint8 * block_sum
+
 
     return img_255_uint8
 
 
-def reconstruccion_bloque_encoder(z_vals, block_sum, output_block_size_height, output_block_size_width):
-    if not torch.is_tensor(block_sum):
-        block_sum = torch.tensor(block_sum, dtype=z_vals.dtype)
+def reconstruccion_bloque_encoder(z_vals, output_block_size_height, output_block_size_width, norm, basis):
+    # if not torch.is_tensor(block_sum):
+    #     block_sum = torch.tensor(block_sum, dtype=z_vals.dtype)
 
 
     z_vals = z_vals.clone().detach()
     # z_vals: (2,)
+
+    if basis == "False":
+        z_vals = z_vals * norm
     z_vals_scaled_255 = z_vals * 255.0
-    z_vals_scaled_255 = z_vals_scaled_255 * block_sum
+
+    # z_vals_scaled_255 = z_vals_scaled_255 * block_sum
+
     z_vals_scaled_255 = torch.clamp(z_vals_scaled_255, min=0.0, max=255.0)
+    z_vals_scaled_255 = z_vals_scaled_255.to(torch.uint8)
 
 
 
@@ -103,7 +112,7 @@ def reconstruccion_bloque_decoder(z_vals, block_size):
     #return qml.numpy.reshape(z_vals, (4, 4), order='F')
 
 
-def optimizar_autoencoder_bloque(opt, params, state, autoencoder_circuit, autoencoder_circuit_dagger, dagger, norm):
+def optimizar_autoencoder_bloque(opt, params, state, autoencoder_circuit, autoencoder_circuit_dagger, dagger, denseAngle):
 
     opt.zero_grad()
 
@@ -111,27 +120,19 @@ def optimizar_autoencoder_bloque(opt, params, state, autoencoder_circuit, autoen
 
 
     if dagger == "True":
-        recon, trash = apply_autoencoder_recon_ampl(state, params_enc, params_dec, autoencoder_circuit_dagger)
+        recon, trash, latent_y0, latent_y1 = apply_autoencoder_recon_ampl(state, params_enc, params_dec, autoencoder_circuit_dagger, denseAngle)
     else:
-        recon, trash= apply_autoencoder_recon_ampl(state, params_enc, params_dec, autoencoder_circuit)
+        recon, trash, latent_y0, latent_y1 = apply_autoencoder_recon_ampl(state, params_enc, params_dec, autoencoder_circuit, denseAngle)
 
 
     # ---------- Loss ----------
-    loss, recon_loss = loss_autoencoder_ampl(state, recon, trash, norm, lambda_trash=0.9)
-
+    loss, recon_loss = loss_autoencoder_ampl(state, recon, trash, denseAngle, latent_y0, latent_y1, lambda_trash=0.9, lambda_bloch=0.5)
     # ---------- Backprop ---------
 
     loss.backward()
     opt.step()
 
     return (params_enc, params_dec), loss.item(), recon_loss.item()
-
-
-def inicializar_circuitos(dev, dev_dec, n_qubits):
-    import circuito
-    circuit_enc = circuito.create_circuit_meas(dev, n_qubits)
-    circuit_dec = circuito.create_circuit_module_dec(dev_dec, n_qubits)
-    return circuit_enc, circuit_dec
 
 
 def graficar(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small):
@@ -256,20 +257,23 @@ def inicializa_encoder_probs_ampl(dev):
     return circuit_enc
 
 
-def apply_autoencoder_recon_ampl(state, params_encoder, params_decoder, autoencoder_recon_ampl):
+def apply_autoencoder_recon_ampl(state, params_encoder, params_decoder, autoencoder_recon_ampl, denseAngle):
 
-    expvals, trash_expvals = autoencoder_recon_ampl(state, params_encoder, params_decoder) 
+    expvals, trash_expvals, latent_y0, latent_y1 = autoencoder_recon_ampl(state, params_encoder, params_decoder, denseAngle) 
 
-    return expvals, trash_expvals
+    return expvals, trash_expvals, latent_y0, latent_y1
 
 
-def loss_autoencoder_ampl(state, recon, trash, norm, lambda_trash):
+def loss_autoencoder_ampl(state, recon, trash, denseAngle, latent_y0, latent_y1, lambda_trash, lambda_bloch):
     import circuito
-    recon = torch.sqrt(recon)
-    # recon = torch.sqrt(recon) * norm  # Escalado a la intensidad original del bloque
+    if denseAngle == "True":
+        recon = (1 - torch.stack(recon)) / 2
+    else:
+        recon = torch.sqrt(recon)
     state = state.flatten()
+    bloch_penalty = latent_y0**2 + latent_y1**2
 
-    loss, recon_loss = circuito.loss_autoencoder_circuito_ampl(state, recon, trash, lambda_trash)
+    loss, recon_loss = circuito.loss_autoencoder_circuito_ampl(state, recon, trash, lambda_trash, bloch_penalty, lambda_bloch)
     return loss, recon_loss
 
 
@@ -285,15 +289,15 @@ def loss_autoencoder_ampl(state, recon, trash, norm, lambda_trash):
 #################### FUNCIONES USADAS PARA ANGLE ENCODING ####################
 
 
-def optimizar_autoencoder_bloque_angle(opt, params_enc, params_dec, state, autoencoder_recon, autoencoder_recon_dagger, dagger):
+def optimizar_autoencoder_bloque_angle(opt, params_enc, params_dec, state, autoencoder_recon, autoencoder_recon_dagger, dagger, n_qubits_utiles, n_qubits_total, basis):
 
     opt.zero_grad()
 
     # ---------- Autoencoder ----------
     if dagger == "True":
-        recon_expvals, trash_expvals, latent_x0, latent_y0, latent_x1, latent_y1 = apply_autoencoder_recon(state, params_enc, params_dec, autoencoder_recon_dagger)
+        recon_expvals, trash_expvals, latent_x0, latent_y0, latent_x1, latent_y1 = apply_autoencoder_recon(state, params_enc, params_dec, autoencoder_recon_dagger, n_qubits_utiles, n_qubits_total, basis)
     else:
-        recon_expvals, trash_expvals, latent_x0, latent_y0, latent_x1, latent_y1 = apply_autoencoder_recon(state, params_enc, params_dec, autoencoder_recon)
+        recon_expvals, trash_expvals, latent_x0, latent_y0, latent_x1, latent_y1 = apply_autoencoder_recon(state, params_enc, params_dec, autoencoder_recon, n_qubits_utiles, n_qubits_total, basis)
 
     # ---------- Loss ----------
     loss, recon_loss = loss_autoencoder(state, recon_expvals, trash_expvals, lambda_trash=0.9, latent_x0=latent_x0, latent_y0=latent_y0, latent_x1=latent_x1, latent_y1=latent_y1, lambda_bloch=0.5) 
@@ -306,9 +310,9 @@ def optimizar_autoencoder_bloque_angle(opt, params_enc, params_dec, state, autoe
     return params_enc, params_dec, loss.item(), recon_loss.item()
 
 
-def apply_autoencoder_recon(state, params_encoder, params_decoder, autoencoder_recon):
+def apply_autoencoder_recon(state, params_encoder, params_decoder, autoencoder_recon, n_qubits_utiles, n_qubits_total, basis):
 
-    expvals, trash_expvals, latent_x0, latent_y0, latent_x1, latent_y1 = autoencoder_recon(state, params_encoder, params_decoder)  # ← SIN np.array
+    expvals, trash_expvals, latent_x0, latent_y0, latent_x1, latent_y1 = autoencoder_recon(state, params_encoder, params_decoder, n_qubits_utiles, n_qubits_total, basis)  # ← SIN np.array
 
     return expvals, trash_expvals, latent_x0, latent_y0, latent_x1, latent_y1
 
@@ -326,6 +330,7 @@ def inicializar_autoencoder_dagger(dev):
 def loss_autoencoder(block_norm, expvals, trash_expvals, lambda_trash, latent_x0, latent_y0, latent_x1, latent_y1, lambda_bloch):
     import circuito
     pixels_expvals = (1 - torch.stack(expvals)) / 2
+    # pixels_expvals = torch.sqrt(expvals)
     block_norm = block_norm.flatten()
 
     bloch_penalty = latent_x0**2 + latent_y0**2 + latent_x1**2 + latent_y1**2

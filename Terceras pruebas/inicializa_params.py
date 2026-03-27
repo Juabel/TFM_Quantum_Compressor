@@ -50,17 +50,3 @@ def inic_params_angle(block_size, resize_dim, n_qubits, n_layers):
             params[(i, j)] = (params_enc, params_dec)
 
     return params
-
-def crear_optimizador_angle(optimizer_name, params, tasa_de_aprendizaje):
-    all_params = []
-
-    for block_params in params.values():
-        all_params.append(block_params[0])  # Append params_enc
-        all_params.append(block_params[1])  # Append params_dec
-
-    if optimizer_name == "Adam":
-        return torch.optim.Adam(all_params, lr=tasa_de_aprendizaje)
-    elif optimizer_name == "GradientDescent":
-        return torch.optim.SGD(all_params, lr=tasa_de_aprendizaje)
-    else:
-        raise ValueError(f"Optimizador desconocido: {optimizer_name}")

@@ -62,8 +62,16 @@ compressed_dim = (
 compressed_rows = compressed_dim[0]   
 compressed_cols = compressed_dim[1]
 
+
+dagger = "False" # Si se quiere usar el autoencoder dagger para la parte del decoder, es decir, usar el mismo circuito pero con los parámetros en orden inverso y con los ángulos negados. Esto se hace para ver si el entrenamiento del encoder es suficiente para que el decoder aprenda a reconstruir la imagen sin necesidad de entrenar específicamente el decoder, lo cual sería una ventaja importante en términos de eficiencia de entrenamiento.
+basis = "True"
+
+
 n_qubits_total = 6 # 4 + 2 ancilla 
 n_qubits_utiles = 4
+
+
+
 #DEFINIR ESTO
 
 #SABER SI VA EN COLUMNAS O FILAS
@@ -95,6 +103,7 @@ mse_por_bloque_intensity = []
 
 
 
+
 start_time = time.time() # Tiempo de inicio para medir el tiempo total de ejecución
 
 #block_size * block_size  # 4x4 = 16 qubits
@@ -116,9 +125,8 @@ autoencoder_recon = funciones_estado.inicializar_autoencoder(dev)
 autoencoder_recon_dagger = funciones_estado.inicializar_autoencoder_dagger(dev)
 circuit_encoder_probs = funciones_estado.inicializa_encoder_probs(dev)
 
-dagger = "True" # Si se quiere usar el autoencoder dagger para la parte del decoder, es decir, usar el mismo circuito pero con los parámetros en orden inverso y con los ángulos negados. Esto se hace para ver si el entrenamiento del encoder es suficiente para que el decoder aprenda a reconstruir la imagen sin necesidad de entrenar específicamente el decoder, lo cual sería una ventaja importante en términos de eficiencia de entrenamiento.
 
-opt = inicializa_params.crear_optimizador_angle(optimizer_name, params, tasa_de_aprendizaje)
+opt = inicializa_params.crear_optimizador(optimizer_name, params, tasa_de_aprendizaje)
 
 
 tecnica_de_encoding_ansatz = "Angle, Capas de Rotaciones y CNOT"
@@ -157,10 +165,10 @@ for f in files:
 
 
     if entrenamiento == True:
-        # print("\n=== ENTRENAMIENTO AUTOENCODER ===")
+        print("\n=== ENTRENAMIENTO AUTOENCODER ===")
 
         for epoch in range(num_iteraciones_global):
-            # print(f"\nEpoch {epoch+1}/{num_iteraciones_global}")
+            print(f"\nEpoch {epoch+1}/{num_iteraciones_global}")
 
             mse_epoch = []
             iter_epoch = []
@@ -169,11 +177,19 @@ for f in files:
             for i in range(0, resize_dim[0], block_size):
                 for j in range(0, resize_dim[1], block_size):
                     bloque_num+=1
-                    # print(f"\nBloque {bloque_num}/{(resize_dim[0]*resize_dim[1])/(block_size*block_size)}")
+                    print(f"\nBloque {bloque_num}/{(resize_dim[0]*resize_dim[1])/(block_size*block_size)}")
 
-                    state, block_norm, block_sum, _ = funciones_estado.imagen_flatten(
+                    state_sin_norm, block_norm, block_sum, norm = funciones_estado.imagen_flatten(
                         img_array, i, j, block_size, device
                     )
+
+                    if basis == "True":
+                        state = (state_sin_norm > 0.5).float()
+                    else:
+                        if norm > 1e-12:
+                            state = state_sin_norm / norm
+                        else:
+                            state = state_sin_norm  # Si la norma es muy pequeña, usar el estado sin normalizar para evitar división por cero
 
                     if(block_sum.item() == 0.0):
                         # print("Bloque de solo ceros, saltando entrenamiento local del bloque.")
@@ -193,12 +209,12 @@ for f in files:
 
                         # ---- ENTRENAMIENTO ----
                         params_enc, params_dec, loss, mse = funciones_estado.optimizar_autoencoder_bloque_angle(
-                            opt, params_enc, params_dec, state, autoencoder_recon, autoencoder_recon_dagger, dagger
+                            opt, params_enc, params_dec, state, autoencoder_recon, autoencoder_recon_dagger, dagger, n_qubits_utiles, n_qubits_total, basis
                         )
 
                         params[(i, j)] = (params_enc, params_dec)
 
-                        # print(f" Iteración {iter+1}/{num_iteraciones_bloque} - MSE: {mse:.6f}")
+                        print(f" Iteración {iter+1}/{num_iteraciones_bloque} - MSE: {mse:.6f}")
 
                         # Dejamos el entrenamiento cuando el MSE es menor que un umbral, para evitar que luego se equivoque y empiece a subir el MSE por sobreentrenamiento
                         # if iter > 0 and mse < 0.07:
@@ -233,14 +249,23 @@ for f in files:
 
     for i in range(0, resize_dim[0], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (filas)
         for j in range(0, resize_dim[1], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (columnas)
-            state, block_norm, block_sum, _ = funciones_estado.imagen_flatten(img_array, i, j, block_size, device)
+            state_sin_norm, block_norm, block_sum, norm = funciones_estado.imagen_flatten(img_array, i, j, block_size, device)
 
-            # print("Estado inicial a utilizar en bloque :", state)
+            print("Estado inicial a utilizar en bloque :", state)
+
+            if basis == "True":
+                state = (state_sin_norm > 0.5).float()
+            else:
+                if norm > 1e-12:
+                    state = state_sin_norm / norm
+                else:
+                    state = state_sin_norm  # Si la norma es muy pequeña, usar el estado sin normalizar para evitar división por cero
+
 
             params_enc, params_dec = params[(i, j)]
 
 
-            z_vals_encoder = circuit_encoder_probs(state, params_enc)
+            z_vals_encoder = circuit_encoder_probs(state, params_enc, n_qubits_utiles, n_qubits_total, basis)
 
 
             # compressed_pixels = funciones_estado.coarse_grain_probs(z_vals_encoder, n_pixels_out)
@@ -253,7 +278,7 @@ for f in files:
 
             z_vals_encoder = (1 - z_vals_encoder) / 2
 
-            output = funciones_estado.escalar_generar_imagen_mediciones_encoder(z_vals_encoder, block_sum, output_block_size_height, output_block_size_width)
+            output = funciones_estado.escalar_generar_imagen_mediciones_encoder(z_vals_encoder, output_block_size_height, output_block_size_width, norm, basis)
 
 
 
@@ -264,20 +289,20 @@ for f in files:
 
             # Decoder 
             if dagger == "True":
-                z_vals_decoder, _, _, _, _, _ = autoencoder_recon_dagger(state, params_enc, params_dec)
+                z_vals_decoder, _, _, _, _, _ = autoencoder_recon_dagger(state, params_enc, params_dec, n_qubits_utiles, n_qubits_total, basis)
             else:
-                z_vals_decoder, _, _, _, _, _ = autoencoder_recon(state, params_enc, params_dec)
+                z_vals_decoder, _, _, _, _, _ = autoencoder_recon(state, params_enc, params_dec, n_qubits_utiles, n_qubits_total, basis)
             # z_vals_decoder = circuit_decoder_probs(z_vals_encoder, params_dec)
             # z_vals_decoder = funciones_estado.coarse_grain_probs(z_vals_decoder, n_qubits)
 
             z_vals_decoder = torch.stack(z_vals_decoder)
 
-            # print("Z valores obtenidos por el decoder : ", z_vals_decoder)
+            print("Z valores obtenidos por el decoder : ", z_vals_decoder)
 
             z_vals_decoder = (1 - z_vals_decoder) / 2
-            output_dec = funciones_estado.escalar_generar_imagen_mediciones_decoder(z_vals_decoder, block_sum, block_size)
+            output_dec = funciones_estado.escalar_generar_imagen_mediciones_decoder(z_vals_decoder, block_size, norm, basis)
 
-            # print("Output del decoder : ", output_dec)
+            print("Output del decoder : ", output_dec)
 
             reconstructed_img_small[i:(i+block_size), 
                                     j:(j+block_size)] = output_dec
@@ -299,8 +324,10 @@ for f in files:
                 #MSE CON INTENSIDAD PIXELES
                 output01 = output_dec / 255.0
                 ouput01_flatten = output01.flatten()
-                # mse_intensity = qml.math.mean((state - ouput01_flatten) ** 2)
-                mse_intensity = torch.mean((state - ouput01_flatten)**2)
+                if basis == "True":
+                    mse_intensity = torch.mean((state.flatten() - ouput01_flatten)**2)
+                else:
+                    mse_intensity = torch.mean((state.flatten() * norm - ouput01_flatten)**2)
 
 
             # print(f"\nMSE: {mse:.6f}")
@@ -324,8 +351,8 @@ for f in files:
     #     show_values=True
     # )
 
-    # funciones_estado.graficar(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small)
-    # funciones_estado.prueba(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small, block_size)
+    funciones_estado.graficar(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small)
+    funciones_estado.prueba(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small, block_size)
 
 
     inicial_original_disk_size = funciones_estado.obtener_tamaño(f)
@@ -395,4 +422,4 @@ with open (ruta_log, "a") as f:
 
 
 
-# funciones_estado.graficar_MSE(train_iter_history, train_mse_history)
+funciones_estado.graficar_MSE(train_iter_history, train_mse_history)

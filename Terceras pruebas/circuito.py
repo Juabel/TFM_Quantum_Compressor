@@ -161,85 +161,18 @@ CIRCUIT_MODULES = {
 }
 
 
-def loss_autoencoder_amplitude(z_vals, block_norm):
-
-    loss = qml.math.mean((block_norm - z_vals) ** 2)
-
-    return loss
-
-
-def create_circuit_module_dec(dev_dec, n_qubits_dec):
-    @qml.qnode(dev_dec, interface="torch", diff_method="backprop")
-    def circuit_decoder(state, params_rot):
-
-        angle_embedding(state, params_rot, n_qubits_dec)
-        qml.StronglyEntanglingLayers(params_rot, wires=range(n_qubits_dec))
-
-
-        # for module_name, num_layers in tecnica_de_decoding_ansatz.items():
-
-        #     module_fn = CIRCUIT_MODULES[module_name]
-
-        #     for _ in range(num_layers):
-        #         module_fn(state, params_rot, n_qubits_dec)
-
-        # Devolver directamente el vector de probs (16 valores)
-        # return qml.probs(wires=range(n_qubits_dec))
-        
-        # --- Medidas personalizadas ---
-        measurements = []
-
-        # Para cada qubit simple: Pauli-Z, Pauli-X, Pauli-Y
-        for q in range(n_qubits_dec):
-            # Z
-            measurements.append(qml.expval(qml.PauliZ(q)))
-            # X
-            measurements.append(qml.expval(qml.PauliX(q)))
-
-        # --- Mediciones combinadas (ejemplo: últimos 2 qubits)
-        if n_qubits_dec > 2:
-            for q in range(n_qubits_dec):
-                # Y
-                measurements.append(qml.expval(qml.PauliY(q)))
-            measurements.append(qml.expval(qml.PauliZ(n_qubits_dec-2) @ qml.PauliZ(n_qubits_dec-1)))
-            measurements.append(qml.expval(qml.PauliX(n_qubits_dec-2) @ qml.PauliX(n_qubits_dec-1)))
-            measurements.append(qml.expval(qml.PauliY(n_qubits_dec-2) @ qml.PauliY(n_qubits_dec-1)))
-            measurements.append(qml.expval(qml.PauliZ(n_qubits_dec-3) @ qml.PauliZ(n_qubits_dec-1)))
-        # Devolver todos concatenados como tensor
-        return measurements
-    return circuit_decoder
-
-
-
-def create_circuit_meas(dev, n_qubits):
-    @qml.qnode(dev, interface="torch", diff_method="backprop")
-    def circuit_meas(state, params_rot):
-
-        #PROBAR ESTO CON AMPLITUDE Y STRONGLYENTANGLEDLAYERS
-
-        amplitude_embedding(state, params_rot, n_qubits)
-        qml.StronglyEntanglingLayers(params_rot, wires=range(n_qubits))
-
-        # for module_name, num_layers in tecnica_de_encoding_ansatz.items():
-
-        #     module_fn = CIRCUIT_MODULES[module_name]
-
-        #     for _ in range(num_layers):
-        #         module_fn(state, params_rot, n_qubits)
-
-        return [qml.expval(qml.PauliZ(k)) for k in range(n_qubits)]
-
-    return circuit_meas
-
-
 def create_autoencoder_recon_ampl(dev):
 
     @qml.qnode(dev, interface="torch")
-    def autoencoder_recon_ampl(state, params_enc, params_dec):
+    def autoencoder_recon_ampl(state, params_enc, params_dec, denseAngle):
 
         # 1️⃣ Embedding en los 4 qubits de datos
-        qml.AmplitudeEmbedding(state, wires=[0,1], normalize=True)
-        # qml.AmplitudeEmbedding(state, wires=[0,1], normalize=False)
+        if denseAngle == "True":
+            dense_angle_embedding(state * torch.pi, 2)
+        else:
+            qml.AmplitudeEmbedding(state, wires=[0,1], normalize=True)
+            # qml.AmplitudeEmbedding(state, wires=[0,1], normalize=False)
+
         # 2️⃣ Encoder
         qml.StronglyEntanglingLayers(params_enc, wires=[0,1])
 
@@ -251,12 +184,31 @@ def create_autoencoder_recon_ampl(dev):
         qml.StronglyEntanglingLayers(params_dec, wires=[0,1])
 
         # 6️⃣ Reconstrucción con la raiz cuadrada de las probabilidades, es decir, las amplitudes
-        probs = qml.probs(wires=[0,1])
-        
-        # ahora los qubits basura están en 4 y 5
-        trash = qml.expval(qml.Projector([0], wires=[2]))
+        if denseAngle == "True":
+            output = [
+                val
+                for i in [0, 1]
+                for val in (qml.expval(qml.PauliZ(i)), qml.expval(qml.PauliX(i)))
+            ]
+            trash = qml.expval(qml.Projector([0], wires=[2]))
 
-        return probs, trash
+            # Medición de Y para penalización
+            # latent_y0 = qml.expval(qml.PauliY(0))
+            # latent_y1 = qml.expval(qml.PauliY(1))
+
+            #PRUEBA devolviendo los castigo en 0
+            latent_y0 = qml.expval(0 * qml.PauliY(0))
+            latent_y1 = qml.expval(0 * qml.PauliY(1))
+        else:
+            output = qml.probs(wires=[0,1])
+            trash = qml.expval(qml.Projector([0], wires=[2]))
+
+            latent_y0 = qml.expval(0 * qml.PauliZ(0))
+            latent_y1 = qml.expval(0 * qml.PauliZ(1))
+                
+        # ahora los qubits basura están en 2
+
+        return output, trash, latent_y0, latent_y1
 
     return autoencoder_recon_ampl
 
@@ -264,11 +216,14 @@ def create_autoencoder_recon_ampl(dev):
 def create_autoencoder_recon_ampl_dagger(dev):
 
     @qml.qnode(dev, interface="torch")
-    def autoencoder_recon_ampl(state, params_enc, params_dec):
+    def autoencoder_recon_ampl(state, params_enc, params_dec, denseAngle):
 
-        # 1️⃣ Embedding en los 4 qubits de datos
-        qml.AmplitudeEmbedding(state, wires=[0,1], normalize=True)
-        # qml.AmplitudeEmbedding(state, wires=[0,1], normalize=False)
+        if denseAngle == "True":
+            dense_angle_embedding(state * torch.pi, 2)
+        else:
+            qml.AmplitudeEmbedding(state, wires=[0,1], normalize=True)
+            # qml.AmplitudeEmbedding(state, wires=[0,1], normalize=False)
+
         # 2️⃣ Encoder
         qml.StronglyEntanglingLayers(params_enc, wires=[0,1])
 
@@ -280,12 +235,31 @@ def create_autoencoder_recon_ampl_dagger(dev):
         qml.adjoint(qml.StronglyEntanglingLayers)(params_enc, wires=[0,1])
 
         # 6️⃣ Reconstrucción con las probabilidades
-        probs = qml.probs(wires=[0,1])
-        
-        # ahora los qubits basura están en 2
-        trash = qml.expval(qml.Projector([0], wires=[2]))
+        if denseAngle == "True":
+            output = [
+                val
+                for i in [0, 1]
+                for val in (qml.expval(qml.PauliZ(i)), qml.expval(qml.PauliX(i)))
+            ]
+            trash = qml.expval(qml.Projector([0], wires=[2]))
 
-        return probs, trash
+            # Medición de Y para penalización
+            latent_y0 = qml.expval(qml.PauliY(0))
+            latent_y1 = qml.expval(qml.PauliY(1))
+
+            #PRUEBA devolviendo los castigo en 0
+            # latent_y0 = qml.expval(0 * qml.PauliY(0))
+            # latent_y1 = qml.expval(0 * qml.PauliY(1))
+        else:
+            output = qml.probs(wires=[0,1])
+            trash = qml.expval(qml.Projector([0], wires=[2]))
+
+            latent_y0 = qml.expval(0 * qml.PauliY(0))
+            latent_y1 = qml.expval(0 * qml.PauliY(1))
+                
+        # ahora los qubits basura están en 2
+
+        return output, trash, latent_y0, latent_y1
 
     return autoencoder_recon_ampl
 
@@ -293,31 +267,40 @@ def create_autoencoder_recon_ampl_dagger(dev):
 
 def create_encoder_probs_ampl(dev):
     @qml.qnode(dev, interface="torch")
-    def encoder_probs(state , params):
+    def encoder_probs(state , params, denseAngle):
 
         # Embedding
-        qml.AmplitudeEmbedding(state, wires=[0,1], normalize=True)
-        # qml.AmplitudeEmbedding(state, wires=[0,1], normalize=False)
+        if denseAngle == "True":
+            dense_angle_embedding(state * torch.pi, 2)
+        else:
+            qml.AmplitudeEmbedding(state, wires=[0,1], normalize=True)
+            # qml.AmplitudeEmbedding(state, wires=[0,1], normalize=False)
 
         # Encoder entrenado
         qml.StronglyEntanglingLayers(params, wires=[0,1])
 
         # Medimos SOLO latentes
-        probs = qml.probs(wires=[0])
+        if denseAngle == "True":
+            output = [
+                val
+                for i in [0]
+                for val in (qml.expval(qml.PauliZ(i)), qml.expval(qml.PauliX(i)))
+            ]
+        else:
+            output = qml.probs(wires=[0])
 
-
-        return probs
+        return output
 
     return encoder_probs
 
-def loss_autoencoder_circuito_ampl(state, pixels_recon, trash, lambda_trash):
+def loss_autoencoder_circuito_ampl(state, pixels_recon, trash, lambda_trash, bloch_penalty, lambda_bloch):
 
     recon_loss = torch.mean((state - pixels_recon)**2)
 
     trash_loss = 1 - trash
     # print("Valor loss basura que tiene que ir disminuyendo:", trash_loss.item())
     print("Probabilidad |00> basura:", trash.detach().cpu().numpy())
-    return recon_loss + lambda_trash * trash_loss, recon_loss
+    return recon_loss + lambda_trash * trash_loss + lambda_bloch * bloch_penalty, recon_loss
 
 
 
@@ -329,31 +312,35 @@ def loss_autoencoder_circuito_ampl(state, pixels_recon, trash, lambda_trash):
 def create_autoencoder_recon(dev):
 
     @qml.qnode(dev, interface="torch")
-    def autoencoder_recon(state, params_enc, params_dec):
+    def autoencoder_recon(state, params_enc, params_dec, n_qubits_utiles, n_qubits_total, basis):
 
         # 1️⃣ Embedding en los 4 qubits de datos
-        qml.AngleEmbedding(state * torch.pi, wires=[0,1,2,3], rotation="Y")
+
+        if basis == "True":
+            qml.BasisState(state, wires=range(4))
+        else:
+            qml.AngleEmbedding(state * torch.pi, wires=range(n_qubits_utiles), rotation="Y")
 
         # 2️⃣ Encoder
-        qml.StronglyEntanglingLayers(params_enc, wires=[0,1,2,3])
+        qml.StronglyEntanglingLayers(params_enc, wires=range(n_qubits_utiles))
 
 
         # 4️⃣ SWAP con ancillas para reinicializar
-        qml.SWAP(wires=[2,4])
-        qml.SWAP(wires=[3,5])
+        qml.SWAP(wires = [n_qubits_utiles - 1, n_qubits_total - 1])  # SWAP entre el último qubit útil y el último ancilla
+        qml.SWAP(wires = [n_qubits_utiles - 2, n_qubits_total - 2])  # SWAP entre el penúltimo qubit útil y el penúltimo ancilla
 
         # Ahora:
         # qubits 0,1 = latentes
         # qubits 2,3 = |00>
 
         # 5️⃣ Decoder sobre los 4 qubits que reconstruyen la imagen
-        qml.StronglyEntanglingLayers(params_dec, wires=[0,1,2,3])
+        qml.StronglyEntanglingLayers(params_dec, wires=range(n_qubits_utiles))
 
         # 6️⃣ Reconstrucción
-        recon = [qml.expval(qml.PauliZ(i)) for i in [0,1,2,3]]
+        recon = [qml.expval(qml.PauliZ(i)) for i in range(n_qubits_utiles)]
         
         # ahora los qubits basura están en 4 y 5
-        trash = qml.expval(qml.Projector([0,0], wires=[4,5]))
+        trash = qml.expval(qml.Projector([0,0], wires=[n_qubits_total - 2, n_qubits_total - 1]))
 
         latent_x0 = qml.expval(qml.PauliX(0))
         latent_y0 = qml.expval(qml.PauliY(0))
@@ -361,6 +348,12 @@ def create_autoencoder_recon(dev):
         latent_x1 = qml.expval(qml.PauliX(1))
         latent_y1 = qml.expval(qml.PauliY(1))
 
+        #prueba devolviendo latentes xy 0 
+        # latent_x0 = qml.expval(qml.PauliX(0) * 0)
+        # latent_y0 = qml.expval(qml.PauliY(0) * 0)
+
+        # latent_x1 = qml.expval(qml.PauliX(1) * 0)
+        # latent_y1 = qml.expval(qml.PauliY(1) * 0)
         return recon, trash, latent_x0, latent_y0, latent_x1, latent_y1
 
     return autoencoder_recon
@@ -368,36 +361,50 @@ def create_autoencoder_recon(dev):
 def create_autoencoder_recon_dagger(dev):
 
     @qml.qnode(dev, interface="torch")
-    def autoencoder_recon(state, params_enc, params_dec):
+    def autoencoder_recon(state, params_enc, params_dec, n_qubits_utiles, n_qubits_total, basis):
 
-        qml.AngleEmbedding(state * torch.pi, wires=[0,1,2,3], rotation="Y")
+
+        if basis == "True":
+            qml.BasisState(state, wires=range(4))
+        else:
+            qml.AngleEmbedding(state * torch.pi, wires=range(n_qubits_utiles), rotation="Y")
 
         # 2️⃣ Encoder
-        qml.StronglyEntanglingLayers(params_enc, wires=[0,1,2,3])
-
+        qml.StronglyEntanglingLayers(params_enc, wires=range(n_qubits_utiles))
 
         # 4️⃣ SWAP con ancillas para reinicializar
-        qml.SWAP(wires=[2,4])
-        qml.SWAP(wires=[3,5])
+        qml.SWAP(wires=[n_qubits_utiles - 1,n_qubits_total - 1])  # SWAP entre el último qubit útil y el último ancilla
+        qml.SWAP(wires=[n_qubits_utiles - 2,n_qubits_total - 2])  # SWAP entre el penúltimo qubit útil y el penúltimo ancilla
+
 
         # Ahora:
         # qubits 0,1 = latentes
         # qubits 2,3 = |00>
 
         # 5️⃣ Decoder sobre los 4 qubits que reconstruyen la imagen
-        qml.adjoint(qml.StronglyEntanglingLayers)(params_enc, wires=[0,1,2,3])
+        qml.adjoint(qml.StronglyEntanglingLayers)(params_enc, wires=range(n_qubits_utiles))
 
         # 6️⃣ Reconstrucción
-        recon = [qml.expval(qml.PauliZ(i)) for i in [0,1,2,3]]
+        recon = [qml.expval(qml.PauliZ(i)) for i in range(n_qubits_utiles)]
         
         # ahora los qubits basura están en 4 y 5
-        trash = qml.expval(qml.Projector([0,0], wires=[4,5]))
+ 
+        trash = qml.expval(qml.Projector([0,0], wires=[n_qubits_total - 2, n_qubits_total - 1]))        
+
+
 
         latent_x0 = qml.expval(qml.PauliX(0))
         latent_y0 = qml.expval(qml.PauliY(0))
 
         latent_x1 = qml.expval(qml.PauliX(1))
         latent_y1 = qml.expval(qml.PauliY(1))
+
+        #prueba devolviendo latentes xy 0 
+        # latent_x0 = qml.expval(qml.PauliX(0) * 0)
+        # latent_y0 = qml.expval(qml.PauliY(0) * 0)
+
+        # latent_x1 = qml.expval(qml.PauliX(1) * 0)
+        # latent_y1 = qml.expval(qml.PauliY(1) * 0)
 
         return recon, trash, latent_x0, latent_y0, latent_x1, latent_y1
 
@@ -407,23 +414,24 @@ def create_autoencoder_recon_dagger(dev):
 
 def create_encoder_probs(dev):
     @qml.qnode(dev, interface="torch")
-    def encoder_probs(state , params):
+    def encoder_probs(state , params,  n_qubits_utiles, n_qubits_total, basis):
 
         # Embedding
-        qml.AngleEmbedding(
-            state * torch.pi,
-            wires=[0,1,2,3],
-            rotation="Y"
-        )
+        if basis == "True":
+            qml.BasisState(state, wires=range(4))
+        else:
+            qml.AngleEmbedding(state * torch.pi, wires=range(n_qubits_utiles), rotation="Y")
 
         # Encoder entrenado
         qml.StronglyEntanglingLayers(
             params,
-            wires=[0,1,2,3],
+            wires=range(n_qubits_utiles),
         )
 
         # Medimos SOLO latentes
-        latent = [qml.expval(qml.PauliZ(i)) for i in [0,1]]
+        # if dense == "True":
+        latent = [qml.expval(qml.PauliZ(i)) for i in range(n_qubits_total - n_qubits_utiles)]
+        # latent = [qml.expval(qml.PauliZ(i)) for i in [0,1]]
 
         return latent
 
@@ -436,7 +444,7 @@ def loss_autoencoder_circuito(block_norm, pixel_expvals, trash_pixels_expvals, l
 
     trash_loss = 1 - trash_pixels_expvals
     # print("Valor loss basura que tiene que ir disminuyendo:", trash_loss.item())
-    # print("Probabilidad |00> basura:", trash_pixels_expvals.detach().cpu().numpy())
+    print("Probabilidad |00> basura:", trash_pixels_expvals.detach().cpu().numpy())
     # print("Penalización de Bloch:", bloch_penalty.detach().cpu().numpy())
 
     return recon_loss + lambda_trash * trash_loss + lambda_bloch * bloch_penalty, recon_loss

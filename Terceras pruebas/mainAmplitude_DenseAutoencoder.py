@@ -129,6 +129,7 @@ autoencoder_circuit = funciones_estado.inicializar_autoencoder_amplitude(dev)
 autoencoder_circuit_dagger = funciones_estado.inicializar_autoencoder_amplitude_dagger(dev)
 circuit_enc = funciones_estado.inicializa_encoder_probs_ampl(dev)
 dagger = "False"
+denseAngle = "True"
 opt = inicializa_params.crear_optimizador(optimizer_name, params, tasa_de_aprendizaje)
 
 
@@ -156,7 +157,7 @@ num_imagen = 0
 for f in files:
     num_imagen += 1
 
-    # print(f"Reconstruyendo imagen comprimida {num_imagen}/{len(files)}...")
+    print(f"Reconstruyendo imagen comprimida {num_imagen}/{len(files)}...")
 
     reconstructed_blocks = []
     # img = Image.open(f).resize(resize_dim) # Redimensionar
@@ -181,7 +182,7 @@ for f in files:
 
 
     if entrenamiento == True:
-        # print("\n=== ENTRENAMIENTO AUTOENCODER ===")
+        print("\n=== ENTRENAMIENTO AUTOENCODER ===")
 
         for epoch in range(num_iteraciones_global):
             print(f"\nEpoch {epoch+1}/{num_iteraciones_global}")
@@ -199,7 +200,11 @@ for f in files:
                         img_array, i, j, block_size, device
                     )
 
-                    state = state_sin_norm / norm 
+                    if norm > 1e-12:
+                            state = state_sin_norm / norm
+                    else:
+                            state = state_sin_norm  # Si la norma es muy pequeña, usar el estado sin normalizar para evitar división por cero
+                        
                     print("Estado inicial a utilizar en bloque :", state)
 
                     if(block_sum.item() == 0.0):
@@ -211,7 +216,7 @@ for f in files:
 
                         # ---- ENTRENAMIENTO ----
                         params[(i, j)], loss, mse = funciones_estado.optimizar_autoencoder_bloque(
-                            opt, params[(i, j)], state, autoencoder_circuit, autoencoder_circuit_dagger, dagger, norm
+                            opt, params[(i, j)], state, autoencoder_circuit, autoencoder_circuit_dagger, dagger, denseAngle
                         )
 
                         print(f" Iteración {iter+1}/{num_iteraciones_bloque} - MSE: {mse:.6f}")
@@ -248,17 +253,19 @@ for f in files:
             state_sin_norm, block_norm, block_sum, norm = funciones_estado.imagen_flatten(img_array, i, j, block_size, device)
 
             if norm > 1e-12:
-                state = state_sin_norm / norm
+                    state = state_sin_norm / norm
             else:
-                state = state_sin_norm  # Si la norma es muy pequeña, usar el estado sin normalizar para evitar división por cero
-
-            # print("\nEstado inicial a utilizar en bloque :", state)
+                    state = state_sin_norm  # Si la norma es muy pequeña, usar el estado sin normalizar para evitar división por cero
+            print("\nEstado inicial a utilizar en bloque :", state)
 
             params_enc, params_dec = params[(i, j)]
 
-            vals_enc = circuit_enc(state , params_enc)
+            vals_enc = circuit_enc(state , params_enc, denseAngle)
             # print("Valores de probabilidad obtenidos por el encoder : ",vals_enc)
-            vals_enc = torch.sqrt(vals_enc)
+            if denseAngle == "True":
+                vals_enc = (1 - torch.stack(vals_enc)) / 2
+            else:
+                vals_enc = torch.sqrt(vals_enc)
             # vals_enc = torch.sqrt(vals_enc) * norm
             # print("Raíz de los valores de probabilidad obtenidos por el encoder : ",vals_enc)
             
@@ -269,7 +276,7 @@ for f in files:
             # print("Z valores obtenidos por el encoder : ",z_vals)
             # print("Block sum (intensidad del bloque original) : ", block_sum)
 
-            output = funciones_estado.escalar_generar_imagen_mediciones_encoder(vals_enc, block_sum, output_block_size_height, output_block_size_width)
+            output = funciones_estado.escalar_generar_imagen_mediciones_encoder(vals_enc, output_block_size_height, output_block_size_width, norm)
             # print("Valores de la imagen comprimida obtenidos por el encoder : ", output)
 
             # print("Output del encoder : ", output)
@@ -281,17 +288,20 @@ for f in files:
 
 
             if dagger == "True":
-                recon, _ = autoencoder_circuit_dagger(state, params_enc, params_dec)
+                recon, _, _, _ = autoencoder_circuit_dagger(state, params_enc, params_dec, denseAngle)
             else:
-                recon, _ = autoencoder_circuit(state, params_enc, params_dec)
+                recon, _, _, _ = autoencoder_circuit(state, params_enc, params_dec, denseAngle)
 
             # print("Valores de probabilidad obtenidos por el decoder : ", recon)
-            recon = torch.sqrt(recon)
+            if denseAngle == "True":
+                recon = (1 - torch.stack(recon)) / 2
+            else:
+                recon = torch.sqrt(recon)
             # recon = torch.sqrt(recon) * norm  # Escalado a la intensidad original del bloque
 
-            # print("Raíz de los valores de probabilidad obtenidos por el decoder : ", recon)
-            output_dec = funciones_estado.escalar_generar_imagen_mediciones_decoder(recon, block_sum, block_size)
-            # print("Valores de la imagen reconstruida obtenidos por el decoder : ", output_dec)
+            print("Raíz de los valores de probabilidad obtenidos por el decoder : ", recon)
+            output_dec = funciones_estado.escalar_generar_imagen_mediciones_decoder(recon, block_size, norm)
+            print("Valores de la imagen reconstruida obtenidos por el decoder : ", output_dec)
 
             reconstructed_img_small[i:(i+block_size), 
                                     j:(j+block_size)] = output_dec
@@ -301,19 +311,14 @@ for f in files:
                 mse_intensity = 0.0
 
             else:
-                #MSE SIN INTENSDIAD PIXELES
+                #MSE DEL ENTRENAMIENTO DIRECTAMENTE
                 recon = recon.flatten()
-                mse = torch.mean((state_sin_norm.flatten() - recon)**2)
-                # mse = torch.mean((state.flatten() - recon)**2)
+                mse = torch.mean((state.flatten() - recon)**2)
 
-
-
-
-                #MSE CON INTENSIDAD PIXELES
+                #MSE TRAS MULTIPLICARLE EL VALOR DEL FACTOR DE NORMALIZACIÓN, OSEA OBTENER EL ESTADO SIN NORMALIZAR
                 output01 = output_dec / 255.0
                 ouput01_flatten = output01.flatten()
-                mse_intensity = torch.mean((state_sin_norm.flatten() - ouput01_flatten)**2)
-                # mse_intensity = torch.mean((state.flatten() - ouput01_flatten)**2)
+                mse_intensity = torch.mean((state.flatten() * norm - ouput01_flatten)**2)
             # print(f"\nMSE: {mse:.6f}")
 
 
