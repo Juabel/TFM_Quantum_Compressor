@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import os
 import torch
 import pennylane.numpy as qnp
+import pennylane as qml
 
 
 
@@ -256,10 +257,25 @@ def inicializa_encoder_probs_ampl(dev):
     circuit_enc = circuito.create_encoder_probs_ampl(dev)
     return circuit_enc
 
+def inicializar_autoencoder_SQ(dev):
+    import circuito
+    autoencoder = circuito.create_autoencoder_recon_single(dev)
+    return autoencoder
+
+def inicializa_encoder_probs_SQ(dev):
+    import circuito
+    circuit_enc = circuito.create_encoder_probs_SQ(dev)
+    return circuit_enc
+
+
+
 
 def apply_autoencoder_recon_ampl(state, params_encoder, params_decoder, autoencoder_recon_ampl, denseAngle):
 
-    expvals, trash_expvals, latent_y0, latent_y1 = autoencoder_recon_ampl(state, params_encoder, params_decoder, denseAngle) 
+    expvals, trash_expvals, latent_y0, latent_y1 = autoencoder_recon_ampl(state, params_encoder, params_decoder, denseAngle)
+
+    # print(qml.draw(autoencoder_recon_ampl)(state, params_encoder, params_decoder, denseAngle))
+
 
     return expvals, trash_expvals, latent_y0, latent_y1
 
@@ -341,3 +357,42 @@ def inicializa_encoder_probs(dev):
     import circuito
     circuit_enc = circuito.create_encoder_probs(dev)
     return circuit_enc
+
+
+
+
+#################### FUNCIONES USADAS PARA SQ ####################
+
+
+def optimizar_autoencoder_bloque_SQ(opt, params, state, autoencoder_circuit):
+
+    opt.zero_grad()
+
+    theta, phi, params_dec = params
+
+    output = apply_autoencoder_recon_SQ(state, theta, phi, params_dec, autoencoder_circuit)
+
+
+    # ---------- Loss ----------
+    loss = loss_autoencoder_SQ(state, output)
+    # ---------- Backprop ---------
+
+    loss.backward()
+    opt.step()
+
+    return (theta, phi, params_dec), loss.item(), loss.item()
+
+def apply_autoencoder_recon_SQ(state, theta, phi, params_dec, autoencoder_recon):
+
+    output = autoencoder_recon(state, theta, phi, params_dec)
+
+    return output
+
+
+def loss_autoencoder_SQ(state, recon):
+    import circuito
+    recon = torch.sqrt(recon)
+    state = state.flatten()
+
+    loss = circuito.loss_autoencoder_circuito_SQ(state, recon)
+    return loss

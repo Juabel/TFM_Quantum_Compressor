@@ -70,11 +70,7 @@ compressed_dim = (
 compressed_rows = compressed_dim[0]   
 compressed_cols = compressed_dim[1]
 
-n_qubits_total = 3  # 2 para la información del bloque + 1 para el trash
-n_qubits_utiles = 2
-#DEFINIR ESTO
 
-#SABER SI VA EN COLUMNAS O FILAS
 
 
 log_ratios = [] # Lista para almacenar los ratios de compresión de cada imagen procesada
@@ -82,7 +78,7 @@ log_tamaño_original = [] # Lista para almacenar los tamaños originales de las 
 log_tamaño_comprimido = [] # Lista para almacenar los tamaños comprimidos de las imágenes
 
 num_iteraciones_global = 2 # Número de iteraciones globales para el entrenamiento, es decir, cuántas veces se optimizan todos los bloques de la imagen
-num_iteraciones_bloque = 10 # Número de iteraciones locales para optimizar cada bloque individualmente
+num_iteraciones_bloque = 20 # Número de iteraciones locales para optimizar cada bloque individualmente
 
 
 optimizer_name = "Adam" # Nombre del optimizador a usar
@@ -94,7 +90,7 @@ optimizer_name = "Adam" # Nombre del optimizador a usar
 #     opt= qml.GradientDescentOptimizer(stepsize=tasa_de_aprendizaje)
 
 
-tecnica_de_encoding_ansatz = "Amplitude"
+tecnica_de_encoding_ansatz = "Data Re-Uploading"
 
 n_layers = 1 # Número de capas para los parámetros del encoder y decoder, es decir, cuántas veces se repite el bloque de gates parametrizadas en el circuito del encoder y decoder. Se puede usar el mismo número de capas para ambos o diferentes, pero por simplicidad se suele usar el mismo número.
 entrenamiento = True # Si se quiere entrenar el autoencoder o solo hacer la reconstrucción con parámetros ya entrenados
@@ -112,7 +108,7 @@ start_time = time.time() # Tiempo de inicio para medir el tiempo total de ejecuc
 
 #block_size * block_size  # 4x4 = 16 qubits
 
-dev = qml.device("default.qubit", wires=n_qubits_total) # Dispositivo cuántico simulado (el de por defecto)
+dev = qml.device("default.qubit", wires=2) # Dispositivo cuántico simulado (el de por defecto)
 device = "cpu" # Dispositivo para PyTorch (CPU o GPU)
 
 # ------------------ Configuración variables iniciales ------------------
@@ -122,21 +118,27 @@ device = "cpu" # Dispositivo para PyTorch (CPU o GPU)
 
 
 
-params = inicializa_params.inic_params_angle(block_size, resize_dim, n_qubits_utiles, n_layers)
+
+# IMPLEMENTAR CON 6 PARAMETROS POR CADA 9 PIXELES
+params = inicializa_params.inic_params_SQ(block_size, resize_dim, n_layers)
 
 #Inicializar circuitos (no se usan los circuitos dev y dev_dec, pero si las funciones qnode que crean)
-autoencoder_circuit = funciones_estado.inicializar_autoencoder_amplitude(dev)
-autoencoder_circuit_dagger = funciones_estado.inicializar_autoencoder_amplitude_dagger(dev)
-circuit_enc = funciones_estado.inicializa_encoder_probs_ampl(dev)
-dagger = "True"
-denseAngle = "False"
-opt = inicializa_params.crear_optimizador(optimizer_name, params, tasa_de_aprendizaje)
+autoencoder_circuit = funciones_estado.inicializar_autoencoder_SQ(dev)
+circuit_enc = funciones_estado.inicializa_encoder_probs_SQ(dev)
+
+opt = inicializa_params.crear_optimizador_SQ(optimizer_name, params, tasa_de_aprendizaje)
 
 
 
-# ------------------ Inicializar parámetros por bloque ------------------
-                                                                                
-# ------------------ Entrenamiento global ------------------
+#################### REVISAR TODO A PARTIR DE AQUI ####################
+
+
+
+
+
+
+
+
 
 # --- Métricas de entrenamiento ---
 train_mse_history = []      # MSE medio por iteración
@@ -215,8 +217,8 @@ for f in files:
                     for iter in range(num_iteraciones_bloque):
 
                         # ---- ENTRENAMIENTO ----
-                        params[(i, j)], loss, mse = funciones_estado.optimizar_autoencoder_bloque(
-                            opt, params[(i, j)], state, autoencoder_circuit, autoencoder_circuit_dagger, dagger, denseAngle
+                        params[(i, j)], loss, mse = funciones_estado.optimizar_autoencoder_bloque_SQ(
+                            opt, params[(i, j)], state, autoencoder_circuit
                         )
 
                         print(f" Iteración {iter+1}/{num_iteraciones_bloque} - MSE: {mse:.6f}")
@@ -256,16 +258,15 @@ for f in files:
                     state = state_sin_norm / norm
             else:
                     state = state_sin_norm  # Si la norma es muy pequeña, usar el estado sin normalizar para evitar división por cero
+
             print("\nEstado inicial a utilizar en bloque :", state)
 
-            params_enc, params_dec = params[(i, j)]
+            theta, phi, params_dec = params[(i, j)]
 
-            vals_enc = circuit_enc(state , params_enc, denseAngle)
+            vals_enc = circuit_enc(state , theta, phi)
             # print("Valores de probabilidad obtenidos por el encoder : ",vals_enc)
-            if denseAngle == "True":
-                vals_enc = (1 - torch.stack(vals_enc)) / 2
-            else:
-                vals_enc = torch.sqrt(vals_enc)
+
+            vals_enc = torch.sqrt(vals_enc)
             # vals_enc = torch.sqrt(vals_enc) * norm
             # print("Raíz de los valores de probabilidad obtenidos por el encoder : ",vals_enc)
             
@@ -287,21 +288,14 @@ for f in files:
             # Decoder 
 
 
-            if dagger == "True":
-                recon, _, _, _ = autoencoder_circuit_dagger(state, params_enc, params_dec, denseAngle)
-            else:
-                recon, _, _, _ = autoencoder_circuit(state, params_enc, params_dec, denseAngle)
+            recon = autoencoder_circuit(state, theta, phi, params_dec)
 
             # print("Valores de probabilidad obtenidos por el decoder : ", recon)
-            if denseAngle == "True":
-                recon = (1 - torch.stack(recon)) / 2
-            else:
-                recon = torch.sqrt(recon)
+
+            recon = torch.sqrt(recon)
             # recon = torch.sqrt(recon) * norm  # Escalado a la intensidad original del bloque
 
-            print("Raíz de los valores de probabilidad obtenidos por el decoder : ", recon)
             output_dec = funciones_estado.escalar_generar_imagen_mediciones_decoder(recon, block_size, norm, "False")
-            print("Valores de la imagen reconstruida obtenidos por el decoder : ", output_dec)
 
             reconstructed_img_small[i:(i+block_size), 
                                     j:(j+block_size)] = output_dec
@@ -383,7 +377,7 @@ funciones_estado.guardar_log(ruta_log,
                              resize_dim, 
                              compressed_dim, 
                              block_size, 
-                             n_qubits_total, 
+                             2, 
                              tecnica_de_encoding_ansatz, 
                              dataset, 
                              num_de_imagenes, 

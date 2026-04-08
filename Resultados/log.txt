@@ -6705,3 +6705,103 @@ Tamano comprimido medio: 0.000173 MB
 MSE medio global de la imagen: 0.061719
 SSIM medio de las imagenes: 0.883182
 MSE medio con intensidad de pixeles: 0.073871
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: Data Re-Uploading
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 68.87 segundos
+Ratio de compresion: 0.72
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000415 MB
+
+MSE medio global de la imagen: 0.125782
+SSIM medio de las imagenes: 0.280712
+MSE medio con intensidad de pixeles: 0.126229
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: Data Re-Uploading
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 107.02 segundos
+Ratio de compresion: 1.51
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000197 MB
+
+MSE medio global de la imagen: 0.020066
+SSIM medio de las imagenes: 0.922483
+MSE medio con intensidad de pixeles: 0.031044
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: Data Re-Uploading
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 20
+-------------  -------------
+Tiempo de ejecucion: 71.41 segundos
+Ratio de compresion: 1.46
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000203 MB
+
+MSE medio global de la imagen: 0.020067
+SSIM medio de las imagenes: 0.922614
+MSE medio con intensidad de pixeles: 0.030984
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 2
+Tecnica de encoding y de ansatz: Data Re-Uploading
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 64.89 segundos
+Ratio de compresion: 1.49
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000199 MB
+
+MSE medio global de la imagen: 0.036818
+SSIM medio de las imagenes: 0.882298
+MSE medio con intensidad de pixeles: 0.042717
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits: 3
+Tecnica de encoding y de ansatz: Amplitude
+Tipo de imagenes: Artificiales experimentos
+Numero de imagenes: 50
+-------------  -------------
+Tiempo de ejecucion: 25.18 segundos
+Ratio de compresion: 1.45
+Tamano original medio: 0.000298 MB
+Tamano comprimido medio: 0.000205 MB
+
+MSE medio global de la imagen: 0.034933
+SSIM medio de las imagenes: 0.900917
+MSE medio con intensidad de pixeles: 0.053038

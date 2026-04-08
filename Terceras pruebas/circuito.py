@@ -4,30 +4,18 @@ import math
 
 
 
-def single_qubit_embedding(state, params_rot, k_qubits=1, rotation_type="RY"):
-    # Seleccionamos los primeros k_qubits
-    qubits = list(range(k_qubits))
+def single_qubit_reuploading_embedding(state, theta, phi, wire=0):
+
+    print(theta)
+    theta = theta.flatten()
+    phi = phi.flatten()
     
-    # Dividimos el vector de entrada equitativamente
-    chunk_size = int(torch.ceil(torch.tensor(len(state) / k_qubits, dtype=torch.float32)))
-
-    # Recorrer cada qubit
-    for qi, q in enumerate(qubits):
-        # Extraer su segmento correspondiente
-        start = qi * chunk_size
-        end = min(start + chunk_size, len(state))
-        angles = state[start:end]
-
-        # Aplicar todas las rotaciones de ese segmento al mismo qubit
-        for angle in angles:
-            if rotation_type == "RY":
-                qml.RY(angle, wires=q)
-            elif rotation_type == "RX":
-                qml.RX(angle, wires=q)
-            elif rotation_type == "RZ":
-                qml.RZ(angle, wires=q)
-            else:
-                raise ValueError("rotation_type must be RX, RY, or RZ")
+    for i, x in enumerate(state):
+        angle = theta[i] + phi[i] * x
+        if i % 2 == 0: 
+            qml.RY(angle, wires=wire)
+        else:
+            qml.RZ(angle, wires=wire)
 
 #REVISAR SINGLE QUBIT ENCODING, ESTO NO ESTA PROBADO AUN
 
@@ -53,7 +41,7 @@ def dense_angle_embedding(state, k_qubits):
             else:
                 qml.RZ(angle, wires=q)
 
-#REVISAR DENSE ANGLE ENCODING, ESTO NO ESTA PROBADO AUN
+
 
 def angle_embedding(state, params_rot, n_q):
     qml.AngleEmbedding(state, wires=range(n_q))
@@ -142,7 +130,7 @@ CIRCUIT_MODULES = {
     "Amplitude": amplitude_embedding,
     "Angle": angle_embedding,
     "DenseAngle": dense_angle_embedding,
-    "SingleQubit": single_qubit_embedding,
+    "SingleQubit": single_qubit_reuploading_embedding,
     "PauliX": pauliX,
     "PauliY": pauliY,
     "Hadamard": hadamard_all,
@@ -205,6 +193,7 @@ def create_autoencoder_recon_ampl(dev):
 
             latent_y0 = qml.expval(0 * qml.PauliZ(0))
             latent_y1 = qml.expval(0 * qml.PauliZ(1))
+
                 
         # ahora los qubits basura están en 2
 
@@ -217,6 +206,7 @@ def create_autoencoder_recon_ampl_dagger(dev):
 
     @qml.qnode(dev, interface="torch")
     def autoencoder_recon_ampl(state, params_enc, params_dec, denseAngle):
+
 
         if denseAngle == "True":
             dense_angle_embedding(state * torch.pi, 2)
@@ -250,12 +240,14 @@ def create_autoencoder_recon_ampl_dagger(dev):
             #PRUEBA devolviendo los castigo en 0
             # latent_y0 = qml.expval(0 * qml.PauliY(0))
             # latent_y1 = qml.expval(0 * qml.PauliY(1))
+
         else:
             output = qml.probs(wires=[0,1])
             trash = qml.expval(qml.Projector([0], wires=[2]))
 
             latent_y0 = qml.expval(0 * qml.PauliY(0))
             latent_y1 = qml.expval(0 * qml.PauliY(1))
+
                 
         # ahora los qubits basura están en 2
 
@@ -448,3 +440,45 @@ def loss_autoencoder_circuito(block_norm, pixel_expvals, trash_pixels_expvals, l
     # print("Penalización de Bloch:", bloch_penalty.detach().cpu().numpy())
 
     return recon_loss + lambda_trash * trash_loss + lambda_bloch * bloch_penalty, recon_loss
+
+
+
+#################### FUNCIONES USADAS PARA SINGLE CUBIT ENCODING ####################
+
+def create_autoencoder_recon_single(dev):
+
+    @qml.qnode(dev, interface="torch")
+    def autoencoder_recon(state, theta, phi, params_dec):
+
+        #SOLO HAY DOS CUBITS, UNO CON INFO Y EL OTRO QUE ENTRARA EN EL DECODER COMO 0
+
+        # 1️⃣ Embedding
+        single_qubit_reuploading_embedding(state, theta, phi, wire=0)
+
+        # 5️⃣ Decoder sobre los 4 qubits que reconstruyen la imagen
+        qml.StronglyEntanglingLayers(params_dec, wires= [0,1])
+
+        # 6️⃣ Reconstrucción
+        output = qml.probs(wires=[0,1])
+        
+        return output
+
+    return autoencoder_recon
+
+def create_encoder_probs_SQ(dev):
+    @qml.qnode(dev, interface="torch")
+    def encoder_probs(state, theta, phi):
+
+        single_qubit_reuploading_embedding(state, theta, phi, wire=0)
+
+        output = qml.probs(wires=[0])
+
+        return output
+
+    return encoder_probs
+
+def loss_autoencoder_circuito_SQ(state, pixels_recon):
+
+    recon_loss = torch.mean((state - pixels_recon)**2)
+
+    return recon_loss
