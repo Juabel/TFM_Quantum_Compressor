@@ -1,10 +1,6 @@
-import torch.nn.functional as F
-from torchmetrics.image.ssim import StructuralSimilarityIndexMeasure
 import matplotlib.pyplot as plt
 import os
 import torch
-import pennylane.numpy as qnp
-import pennylane as qml
 
 
 
@@ -113,21 +109,20 @@ def reconstruccion_bloque_decoder(z_vals, block_size):
     #return qml.numpy.reshape(z_vals, (4, 4), order='F')
 
 
-def optimizar_autoencoder_bloque(opt, params, state, autoencoder_circuit, autoencoder_circuit_dagger, dagger, denseAngle):
+def optimizar_autoencoder_bloque(opt, params, state, autoencoder_circuit, autoencoder_circuit_dagger, dagger, denseAngle, ansatz, mejora):
 
     opt.zero_grad()
 
     params_enc, params_dec = params
 
-
     if dagger == "True":
-        recon, trash, latent_y0, latent_y1 = apply_autoencoder_recon_ampl(state, params_enc, params_dec, autoencoder_circuit_dagger, denseAngle)
+        recon, trash = apply_autoencoder_recon_ampl(state, params_enc, params_dec, autoencoder_circuit_dagger, denseAngle, ansatz, mejora)
     else:
-        recon, trash, latent_y0, latent_y1 = apply_autoencoder_recon_ampl(state, params_enc, params_dec, autoencoder_circuit, denseAngle)
+        recon, trash, = apply_autoencoder_recon_ampl(state, params_enc, params_dec, autoencoder_circuit, denseAngle, ansatz, mejora)
 
 
     # ---------- Loss ----------
-    loss, recon_loss = loss_autoencoder_ampl(state, recon, trash, denseAngle, latent_y0, latent_y1, lambda_trash=0.9, lambda_bloch=0.5)
+    loss, recon_loss = loss_autoencoder_ampl(state, recon, trash, denseAngle, lambda_trash=0.9)
     # ---------- Backprop ---------
 
     loss.backward()
@@ -136,7 +131,7 @@ def optimizar_autoencoder_bloque(opt, params, state, autoencoder_circuit, autoen
     return (params_enc, params_dec), loss.item(), recon_loss.item()
 
 
-def graficar(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small):
+def graficar(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small, output_path):
     plt.figure(figsize=(12, 4)) # Imagen original
     plt.subplot(1, 3, 1)
     plt.imshow(img_array, cmap="gray")
@@ -153,7 +148,11 @@ def graficar(img_array, resize_dim, compressed_img_small, compressed_dim, recons
     plt.title(f"Reconstruida {resize_dim[0]}x{resize_dim[1]}")
     plt.axis("off")
     plt.tight_layout()
-    plt.show()
+
+        # 🔹 Guardar la figura completa
+    plt.savefig(output_path, bbox_inches='tight')
+    
+    # plt.show()
 
 
 
@@ -204,17 +203,28 @@ def prueba(img_array, resize_dim, compressed_img_small, compressed_dim, reconstr
 
 
 
-def guardar_log(ruta_log, resize_dim, compressed_dim, block_size, n_qubits, tecnica_de_encoding_ansatz, dataset, num_de_imagenes, tiempo_total, average_disk_ratio, average_tamaño_original, average_tamaño_comprimido):
+def guardar_log(ruta_log, resize_dim, compressed_dim, block_size, n_qubits, tecnica_de_encoding_ansatz, dataset, num_de_imagenes, tiempo_total, average_disk_ratio, average_tamaño_original, average_tamaño_comprimido
+                ,num_iteraciones_globales, num_iteraciones_bloque, tasa_aprendizaje, num_layers_decoder, num_de_imagenes_test_por_numero, ansatz):
     with open(ruta_log, "a") as f:
         f.write("\n\n\n")
         f.write(f"------------- HIPERPARAMETROS -------------\n")
         f.write(f"Resize dimension: {resize_dim}\n")
         f.write(f"Compressed dimension: {compressed_dim}\n")
         f.write(f"Tamano de bloques: {block_size}x{block_size}\n")
-        f.write(f"Numero de qubits: {n_qubits}\n")
-        f.write(f"Tecnica de encoding y de ansatz: {tecnica_de_encoding_ansatz}\n")
+        f.write(f"Numero de qubits total: {n_qubits}\n")
+        f.write(f"Tecnica de encoding: {tecnica_de_encoding_ansatz}\n")
         f.write(f"Tipo de imagenes: {dataset}\n")
-        f.write(f"Numero de imagenes: {num_de_imagenes}\n")
+        f.write(f"Numero de imagenes total Train: {num_de_imagenes}\n")
+        f.write(f"Numero de imagenes total Test: {num_de_imagenes_test_por_numero}\n")
+        f.write(f"Ansatz usado: {ansatz}\n")
+        f.write(f"-------------  -------------\n")
+
+        #numero iteraciones globales, locales, tasa de aprendizaje, numero de layers de deocoder, 
+        f.write(f"Número de iteraciones globales: {num_iteraciones_globales}\n")
+        f.write(f"Número de iteraciones locales: {num_iteraciones_bloque}\n")
+        f.write(f"Tasa de aprendizaje: {tasa_aprendizaje}\n")
+        f.write(f"Número de capas del decoder: {num_layers_decoder}\n")
+
         f.write(f"-------------  -------------\n")
         f.write(f"Tiempo de ejecucion: {tiempo_total:.2f} segundos\n")
         f.write(f"Ratio de compresion: {average_disk_ratio:.2f}\n")
@@ -270,26 +280,25 @@ def inicializa_encoder_probs_SQ(dev):
 
 
 
-def apply_autoencoder_recon_ampl(state, params_encoder, params_decoder, autoencoder_recon_ampl, denseAngle):
+def apply_autoencoder_recon_ampl(state, params_encoder, params_decoder, autoencoder_recon_ampl, denseAngle, ansatz, mejora):
 
-    expvals, trash_expvals, latent_y0, latent_y1 = autoencoder_recon_ampl(state, params_encoder, params_decoder, denseAngle)
+    expvals, trash_expvals = autoencoder_recon_ampl(state, params_encoder, params_decoder, denseAngle, ansatz, mejora)
 
     # print(qml.draw(autoencoder_recon_ampl)(state, params_encoder, params_decoder, denseAngle))
 
 
-    return expvals, trash_expvals, latent_y0, latent_y1
+    return expvals, trash_expvals
 
 
-def loss_autoencoder_ampl(state, recon, trash, denseAngle, latent_y0, latent_y1, lambda_trash, lambda_bloch):
+def loss_autoencoder_ampl(state, recon, trash, denseAngle, lambda_trash):
     import circuito
     if denseAngle == "True":
         recon = (1 - torch.stack(recon)) / 2
     else:
         recon = torch.sqrt(recon)
     state = state.flatten()
-    bloch_penalty = latent_y0**2 + latent_y1**2
 
-    loss, recon_loss = circuito.loss_autoencoder_circuito_ampl(state, recon, trash, lambda_trash, bloch_penalty, lambda_bloch)
+    loss, recon_loss = circuito.loss_autoencoder_circuito_ampl(state, recon, trash, lambda_trash)
     return loss, recon_loss
 
 
@@ -305,18 +314,18 @@ def loss_autoencoder_ampl(state, recon, trash, denseAngle, latent_y0, latent_y1,
 #################### FUNCIONES USADAS PARA ANGLE ENCODING ####################
 
 
-def optimizar_autoencoder_bloque_angle(opt, params_enc, params_dec, state, autoencoder_recon, autoencoder_recon_dagger, dagger, n_qubits_utiles, n_qubits_total, basis):
+def optimizar_autoencoder_bloque_angle(opt, params_enc, params_dec, state, autoencoder_recon, autoencoder_recon_dagger, dagger, n_qubits_utiles, n_qubits_total, basis, ansatz, mejora):
 
     opt.zero_grad()
 
     # ---------- Autoencoder ----------
     if dagger == "True":
-        recon_expvals, trash_expvals, latent_x0, latent_y0, latent_x1, latent_y1 = apply_autoencoder_recon(state, params_enc, params_dec, autoencoder_recon_dagger, n_qubits_utiles, n_qubits_total, basis)
+        recon_expvals, trash_expvals = apply_autoencoder_recon(state, params_enc, params_dec, autoencoder_recon_dagger, n_qubits_utiles, n_qubits_total, basis, ansatz, mejora)
     else:
-        recon_expvals, trash_expvals, latent_x0, latent_y0, latent_x1, latent_y1 = apply_autoencoder_recon(state, params_enc, params_dec, autoencoder_recon, n_qubits_utiles, n_qubits_total, basis)
+        recon_expvals, trash_expvals = apply_autoencoder_recon(state, params_enc, params_dec, autoencoder_recon, n_qubits_utiles, n_qubits_total, basis, ansatz, mejora)
 
     # ---------- Loss ----------
-    loss, recon_loss = loss_autoencoder(state, recon_expvals, trash_expvals, lambda_trash=0.9, latent_x0=latent_x0, latent_y0=latent_y0, latent_x1=latent_x1, latent_y1=latent_y1, lambda_bloch=0.5) 
+    loss, recon_loss = loss_autoencoder(state, recon_expvals, trash_expvals, lambda_trash=0.9) 
 
     # ---------- Backprop ---------
 
@@ -326,11 +335,11 @@ def optimizar_autoencoder_bloque_angle(opt, params_enc, params_dec, state, autoe
     return params_enc, params_dec, loss.item(), recon_loss.item()
 
 
-def apply_autoencoder_recon(state, params_encoder, params_decoder, autoencoder_recon, n_qubits_utiles, n_qubits_total, basis):
+def apply_autoencoder_recon(state, params_encoder, params_decoder, autoencoder_recon, n_qubits_utiles, n_qubits_total, basis, ansatz, mejora):
 
-    expvals, trash_expvals, latent_x0, latent_y0, latent_x1, latent_y1 = autoencoder_recon(state, params_encoder, params_decoder, n_qubits_utiles, n_qubits_total, basis)  # ← SIN np.array
+    expvals, trash_expvals = autoencoder_recon(state, params_encoder, params_decoder, n_qubits_utiles, n_qubits_total, basis, ansatz, mejora)  # ← SIN np.array
 
-    return expvals, trash_expvals, latent_x0, latent_y0, latent_x1, latent_y1
+    return expvals, trash_expvals
 
 
 def inicializar_autoencoder(dev):
@@ -343,14 +352,13 @@ def inicializar_autoencoder_dagger(dev):
     autoencoder = circuito.create_autoencoder_recon_dagger(dev)
     return autoencoder
 
-def loss_autoencoder(block_norm, expvals, trash_expvals, lambda_trash, latent_x0, latent_y0, latent_x1, latent_y1, lambda_bloch):
+def loss_autoencoder(block_norm, expvals, trash_expvals, lambda_trash):
     import circuito
     pixels_expvals = (1 - torch.stack(expvals)) / 2
     # pixels_expvals = torch.sqrt(expvals)
     block_norm = block_norm.flatten()
 
-    bloch_penalty = latent_x0**2 + latent_y0**2 + latent_x1**2 + latent_y1**2
-    loss, recon_loss = circuito.loss_autoencoder_circuito(block_norm, pixels_expvals, trash_expvals, lambda_trash, bloch_penalty, lambda_bloch)
+    loss, recon_loss = circuito.loss_autoencoder_circuito(block_norm, pixels_expvals, trash_expvals, lambda_trash)
     return loss, recon_loss
 
 def inicializa_encoder_probs(dev):
@@ -364,11 +372,9 @@ def inicializa_encoder_probs(dev):
 #################### FUNCIONES USADAS PARA SQ ####################
 
 
-def optimizar_autoencoder_bloque_SQ(opt, params, state, autoencoder_circuit):
+def optimizar_autoencoder_bloque_SQ(opt, theta, phi, params_dec, state, autoencoder_circuit):
 
     opt.zero_grad()
-
-    theta, phi, params_dec = params
 
     output = apply_autoencoder_recon_SQ(state, theta, phi, params_dec, autoencoder_circuit)
 
@@ -380,11 +386,31 @@ def optimizar_autoencoder_bloque_SQ(opt, params, state, autoencoder_circuit):
     loss.backward()
     opt.step()
 
+    return theta, phi, params_dec, loss.item(), loss.item()
+
+def optimizar_autoencoder_bloque_SQ_orig(opt, params, state, autoencoder_circuit, opt_params, ansatz, mejora):
+
+    opt.zero_grad()
+
+    theta, phi, params_dec = params
+
+    output = apply_autoencoder_recon_SQ(state, theta, phi, params_dec, autoencoder_circuit, opt_params, ansatz, mejora)
+
+
+    # ---------- Loss ----------
+    loss = loss_autoencoder_SQ(state, output)
+    # ---------- Backprop ---------
+
+    loss.backward()
+    opt.step()
+
     return (theta, phi, params_dec), loss.item(), loss.item()
 
-def apply_autoencoder_recon_SQ(state, theta, phi, params_dec, autoencoder_recon):
 
-    output = autoencoder_recon(state, theta, phi, params_dec)
+
+def apply_autoencoder_recon_SQ(state, theta, phi, params_dec, autoencoder_recon, opt_params, ansatz, mejora):
+
+    output = autoencoder_recon(state, theta, phi, params_dec, opt_params, ansatz, mejora)
 
     return output
 

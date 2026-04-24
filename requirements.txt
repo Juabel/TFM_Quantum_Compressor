@@ -1,0 +1,8 @@
+python == 3.10.19
+pennylane == 0.42.3
+numpy == 2.0.1
+pillow == 11.1.0
+torch == 2.5.1
+scikit-image == 0.25.2
+matplotlib == 3.10.8
+pandas == 2.3.3

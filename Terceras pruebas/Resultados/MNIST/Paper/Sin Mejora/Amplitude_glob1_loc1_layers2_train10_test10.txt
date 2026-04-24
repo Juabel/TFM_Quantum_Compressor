@@ -1,0 +1,27 @@
+
+
+
+------------- HIPERPARAMETROS -------------
+Resize dimension: (28, 28)
+Compressed dimension: (14, 28)
+Tamano de bloques: 2x2
+Numero de qubits total: 2
+Tecnica de encoding: Amplitude
+Tipo de imagenes: MNIST
+Numero de imagenes total Train: 10
+Numero de imagenes total Test: 10
+Ansatz usado: Paper
+-------------  -------------
+Número de iteraciones globales: 1
+Número de iteraciones locales: 1
+Tasa de aprendizaje: 0.05
+Número de capas del decoder: 2
+-------------  -------------
+Tiempo de ejecucion: 132.64 segundos
+Ratio de compresion: 1.28
+Tamano original medio: 0.000246 MB
+Tamano comprimido medio: 0.000192 MB
+
+MSE medio global de la imagen: 0.099299
+SSIM medio de las imagenes: 0.786251
+MSE medio con intensidad de pixeles: 0.102344
