@@ -1,6 +1,9 @@
 import matplotlib.pyplot as plt
 import os
 import torch
+from sklearn.manifold import TSNE
+import numpy as np
+
 
 
 
@@ -253,6 +256,107 @@ def graficar_MSE(train_iter_history, train_mse_history):
     plt.grid()
     plt.show()
 
+
+def histograma_MSE_por_clase(mse_por_clase, saver_dir):
+
+    clases = []
+    medias = []
+
+    for clase in sorted(mse_por_clase.keys(), key=int):
+        valores = mse_por_clase[clase]
+        media = np.mean(valores) if valores else 0
+        clases.append(clase)
+        medias.append(media)
+
+    plt.figure()
+    plt.bar(clases, medias)
+    plt.xlabel("Dígito")
+    plt.ylabel("MSE medio")
+    plt.title("MSE medio por clase (MNIST)")
+    plt.savefig(os.path.join(saver_dir, "histograma_MSE_por_clase.png"))
+    # plt.show()
+
+def bloques_procesados(x, mse_epoch):
+    plt.plot(x, mse_epoch)
+    plt.xlabel("Bloques procesados")
+    plt.ylabel("MSE")
+    plt.title("Evolución del error durante entrenamiento")
+    plt.show()
+
+
+def bloques_finales(x2, train_mse_history):
+    # Convertir a array (cuidado: deben tener misma longitud)
+    min_len = min(len(lst) for lst in train_mse_history)
+    
+    recortadas = [lst[:min_len] for lst in train_mse_history]
+    data = np.array(recortadas)
+
+    media = np.mean(data, axis=0)
+
+    std = np.std(data, axis=0)
+
+    x = range(len(media))
+
+    plt.plot(x, media, label="Media")
+    plt.fill_between(x, media-std, media+std, alpha=0.3)
+
+    plt.xlabel("Bloques / iteraciones")
+    plt.ylabel("MSE")
+    plt.title("Evolución del error (media ± std)")
+    plt.legend()
+    plt.show()
+
+def comportamiento_entrenamiento_global(train_mse_imagenes, saver_dir):
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    # filtrar vacíos
+    clean = [np.array(img) for img in train_mse_imagenes if len(img) > 0]
+
+    min_len = min(len(img) for img in clean)
+    data = np.array([img[:min_len] for img in clean])
+
+    mean_mse = np.mean(data, axis=0)
+
+    # asegurar 1D real
+    mean_mse = np.asarray(mean_mse).reshape(-1)
+
+    x = np.arange(len(mean_mse))
+
+    plt.figure()
+    plt.plot(x, mean_mse, color="black", linewidth=2)
+
+    plt.xlabel("Iteración global")
+    plt.ylabel("MSE")
+    plt.title("Evolución global del entrenamiento")
+    plt.savefig(os.path.join(saver_dir, "evolucion_global_entrenamiento.png"))
+    # plt.show()
+
+def mapa_de_calor(error_medio, save_dir):
+    plt.imshow(error_medio, cmap='gray_r', vmin=np.min(error_medio), vmax=np.max(error_medio))
+    plt.colorbar()
+    plt.title("Error medio (ignorando fondo)")
+    plt.savefig(os.path.join(save_dir, "mapa_de_calor.png"))
+    # plt.show()
+
+
+def graficar_TSNE(latentes, labels, save_dir):
+    perplexity = min(30, len(latentes) - 1)
+    X = np.array(latentes)
+    tsne = TSNE(n_components=2, random_state=42, perplexity=perplexity)
+    X_2d = tsne.fit_transform(X)
+
+    plt.figure(figsize=(8,6))
+
+    for i in range(10):
+        idx = [j for j, l in enumerate(labels) if l == i]
+        plt.scatter(X_2d[idx, 0], X_2d[idx, 1], label=str(i), alpha=0.6)
+
+    plt.legend()
+    plt.title("t-SNE por clases (MNIST)")
+    plt.savefig(os.path.join(save_dir, "t-SNE_por_clases.png"))
+    # plt.show()
 
 def inicializar_autoencoder_amplitude(dev):
     import circuito

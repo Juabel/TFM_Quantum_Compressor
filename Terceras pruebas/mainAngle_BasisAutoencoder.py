@@ -23,18 +23,21 @@ def ejecutar_autoencoder(basis_valor, dataset, n_global, n_local, n_layers_val, 
     if dataset == "MNIST":
 
         # DATOS MNIST
-        path_train = "/mnt/datastore-data-analytics/KUBIBIT/DataEncoding/mnist-png/train"
-        path_test = "/mnt/datastore-data-analytics/KUBIBIT/DataEncoding/mnist-png/test"
+       
+        path_train = r"\\datastore.tekniker.es\ia\data-analytics\KUBIBIT\DataEncoding\mnist-png\train"
+        path_test  = r"\\datastore.tekniker.es\ia\data-analytics\KUBIBIT\DataEncoding\mnist-png\test"
 
         files = generador_datos.cargar_por_clases(path_train, n_train)
         files_test = generador_datos.cargar_por_clases(path_test, n_test)
 
         resize_dim = (28, 28)
+        mse_por_clase = {str(i): [] for i in range(10)}
+
 
     elif dataset == "SAR":
         # DATOS SAR: 
 
-        path = "/mnt/datastore-data-analytics/KUBIBIT/DataEncoding/SAR_Dataset"
+        path = r"\\datastore.tekniker.es\ia\data-analytics\KUBIBIT\DataEncoding\SAR_Dataset"
 
         files, files_test = generador_datos.split_dataset(
             path,
@@ -43,6 +46,8 @@ def ejecutar_autoencoder(basis_valor, dataset, n_global, n_local, n_layers_val, 
         )
 
         resize_dim = (100, 100)
+        mse_por_clase = {str(i): [] for i in range(2)}
+        
 
 
     tasa_de_aprendizaje = 0.05 # Tasa de aprendizaje para el optimizador
@@ -104,8 +109,7 @@ def ejecutar_autoencoder(basis_valor, dataset, n_global, n_local, n_layers_val, 
 
     # --- Métricas de entrenamiento ---
     train_mse_history = []      # MSE medio por iteración
-    train_iter_history = []     # Índice global de iteración
-    global_iter = 0
+    train_mse_imagenes = []      # Lista para almacenar el historial de MSE por iteración global de cada imagen
 
     compressed_img_small = np.zeros((compressed_rows, compressed_cols))
     reconstructed_img_small = np.zeros((resize_dim[0], resize_dim[1]))
@@ -128,9 +132,32 @@ def ejecutar_autoencoder(basis_valor, dataset, n_global, n_local, n_layers_val, 
 
     opt = inicializa_params.crear_optimizador(optimizer_name, params, tasa_de_aprendizaje)
 
+    base_dir = r"\\datastore.tekniker.es\ia\data-analytics\KUBIBIT\DataEncoding"
+    carpeta_intermedia = (
+    f"{tecnica_de_encoding_ansatz}_"
+    f"glob{num_iteraciones_global}_"
+    f"loc{num_iteraciones_bloque}_"
+    f"layers{n_layers}_"
+    f"train{n_train * 10}_"
+    f"test{n_test * 10}"
+)
+    mejora_str = "Con Mejora" if mejora else "Sin Mejora"
+
 
     lista_mse_final_bloque = []
     for f in files:
+
+        numero = os.path.basename(os.path.dirname(f))
+
+        output_dir = os.path.join(
+            base_dir,
+            "Resultados",
+            dataset,
+            ansatz,
+            mejora_str,
+            carpeta_intermedia,
+            numero
+        )
         # print(f"Reconstruyendo imagen comprimida {num_imagen}/{len(files)}...")
 
         num_imagen += 1
@@ -203,7 +230,7 @@ def ejecutar_autoencoder(basis_valor, dataset, n_global, n_local, n_layers_val, 
                             # if iter > 0 and mse < 0.07:
                             #     print("MSE menor que 0.07, saliendo del entrenamiento local del bloque.")
                             #     break
-                            grafiquito_mse.append(mse)
+                            # grafiquito_mse.append(mse)
 
                             if iter == 3 and mse < 1e-6:
                                 # print("MSE muy bajo, saliendo del entrenamiento local del bloque.")
@@ -219,32 +246,25 @@ def ejecutar_autoencoder(basis_valor, dataset, n_global, n_local, n_layers_val, 
                         #     plt.title("Evolución del MSE durante el entrenamiento")
                         #     plt.show()
 
-                        global_iter += 1
                         mse_epoch.append(mse)
-                        iter_epoch.append(global_iter)
+                if epoch == num_iteraciones_global - 1:
+                    train_mse_history.append(mse_epoch)            
 
-                train_mse_history.append(mse_epoch)
-                train_iter_history.append(iter_epoch)
+                mse_epoch = []
         # funciones_estado.graficar_MSE(train_iter_history, train_mse_history)
+        train_mse_imagenes.append(train_mse_history) # Guardar el historial de MSE por iteración global de cada imagen en la lista correspondiente para luego analizar el comportamiento del entrenamiento a lo largo de las iteraciones globales y comparar entre imágenes
         train_mse_history = []
-        train_iter_history = []
+    save_dir = os.path.dirname(output_dir)
+    os.makedirs(save_dir, exist_ok=True)
+    funciones_estado.comportamiento_entrenamiento_global(train_mse_imagenes, save_dir)
 
-
+    latentes = []
+    labels = []
+    heatmap = np.zeros(resize_dim)
+    contador = np.zeros(resize_dim)
 
     for f in files_test:
-        base_dir = "/mnt/datastore-data-analytics/KUBIBIT/DataEncoding"
         numero = os.path.basename(os.path.dirname(f))
-
-        carpeta_intermedia = (
-            f"{tecnica_de_encoding_ansatz}_"
-            f"glob{num_iteraciones_global}_"
-            f"loc{num_iteraciones_bloque}_"
-            f"layers{n_layers}_"
-            f"train{n_train * 10}_"
-            f"test{n_test * 10}"
-        )
-
-        mejora_str = "Con Mejora" if mejora else "Sin Mejora"
 
         output_dir = os.path.join(
             base_dir,
@@ -271,6 +291,7 @@ def ejecutar_autoencoder(basis_valor, dataset, n_global, n_local, n_layers_val, 
         img_array = torch.from_numpy(np.array(img)).float().to(device)
         # print("\n=== RECONSTRUCCIÓN ===")
 
+        z_imagen = []
 
         for i in range(0, resize_dim[0], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (filas)
             for j in range(0, resize_dim[1], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (columnas)
@@ -300,6 +321,9 @@ def ejecutar_autoencoder(basis_valor, dataset, n_global, n_local, n_layers_val, 
                 col_idx = (j // block_size) * output_block_size_width
 
                 z_vals_encoder = (1 - z_vals_encoder) / 2
+
+                z_vals = torch.stack(z_vals_encoder) if isinstance(z_vals_encoder, list) else z_vals_encoder
+                z_imagen.extend(z_vals.detach().cpu().numpy().flatten())                
 
                 output = funciones_estado.escalar_generar_imagen_mediciones_encoder(z_vals_encoder, output_block_size_height, output_block_size_width, norm, basis)
 
@@ -349,9 +373,17 @@ def ejecutar_autoencoder(basis_valor, dataset, n_global, n_local, n_layers_val, 
                     ouput01_flatten = output01.flatten()
                     if basis == "True":
                         mse_intensity = torch.mean((state.flatten() - ouput01_flatten)**2)
+                        error = np.abs(state.flatten() - ouput01_flatten)
+
                     else:
                         mse_intensity = torch.mean((state.flatten() * norm - ouput01_flatten)**2)
+                        error = np.abs(state.flatten() * norm - ouput01_flatten)
+                    
+                    error = error.detach().cpu().numpy()
+                    error_block = error.reshape(block_size, block_size)
 
+                    heatmap[i:i+block_size, j:j+block_size] += error_block
+                    contador[i:i+block_size, j:j+block_size] += 1
 
                 # print(f"\nMSE: {mse:.6f}")
 
@@ -362,7 +394,8 @@ def ejecutar_autoencoder(basis_valor, dataset, n_global, n_local, n_layers_val, 
                 idx += 1
 
         # Guardar las imágenes resultantes
-
+        latentes.append(z_imagen)
+        labels.append(int(numero))
         Image.fromarray(compressed_img_small.astype(np.uint8)).save(compressed_save_path)
         Image.fromarray(img_array.detach().cpu().numpy().astype(np.uint8)).save(img_save_path)    
         Image.fromarray(reconstructed_img_small.astype(np.uint8)).save(reconstructed_save_path)
@@ -409,6 +442,21 @@ def ejecutar_autoencoder(basis_valor, dataset, n_global, n_local, n_layers_val, 
         mse_por_imagen_intensity.append(average_mse_intensity) # Guardar el MSE medio con intensidad de píxeles de la imagen completa en la lista correspondiente para luego calcular la media global de MSE por imagen
         ssim_por_imagen.append(ssim_val) # Guardar el SSIM de la imagen completa en la lista correspondiente para luego calcular la media global de SSIM por imagen
 
+        mse_por_clase[numero].append(media_MSE)
+
+    funciones_estado.histograma_MSE_por_clase(mse_por_clase, save_dir)
+
+    error_medio = np.divide(
+        heatmap,
+        contador,
+        out=np.zeros_like(heatmap),
+        where=contador != 0
+    )
+    funciones_estado.mapa_de_calor(error_medio, save_dir)
+
+
+    funciones_estado.graficar_TSNE(latentes, labels, save_dir)
+
     #obtner media de MSE por todas las imagenes
     media_final_MSE = sum(mse_por_imagen) / len(mse_por_imagen) if mse_por_imagen else 0.0
     media_final_MSE_intensity = sum(mse_por_imagen_intensity) / len(mse_por_imagen_intensity) if mse_por_imagen_intensity else 0.0
@@ -432,6 +480,7 @@ def ejecutar_autoencoder(basis_valor, dataset, n_global, n_local, n_layers_val, 
         dataset,
         ansatz,
         mejora_str,
+        carpeta_intermedia,
         f"{carpeta_intermedia}.txt"
     )
 
