@@ -18,6 +18,9 @@ import os
 # ------------------ Configuración variables iniciales ------------------
 
 def ejecutar_autoencoder(dataset, n_global, n_local, n_layers_val, n_train, n_test, ansatz, mejora):
+    start_time = time.time() # Tiempo de inicio para medir el tiempo total de ejecución
+
+    start_time_preproceso = time.time() # Tiempo de inicio para medir el tiempo del preprocesamiento de datos
 
 
     #DATOS SATELITALES
@@ -98,8 +101,6 @@ def ejecutar_autoencoder(dataset, n_global, n_local, n_layers_val, n_train, n_te
 
 
     # CHECKEAR EL ENTRENAMIENTO DEL ROTACIONAL EN EL DECODER
-    mse_por_bloque = [] # Lista para almacenar los MSE por bloque durante la reconstrucción
-    mse_por_bloque_intensity = [] # Lista para almacenar los MSE por bloque durante la reconstrucción teniendo en cuenta la intensidad de los píxeles (escalando la imagen reconstruida a su rango original de 0-255 antes de calcular el MSE)
     mse_por_imagen = [] # Lista para almacenar el MSE medio de cada imagen completa durante la reconstrucción
     mse_por_imagen_intensity = [] # Lista para almacenar el MSE medio con intensidad de píxeles de cada imagen completa durante la reconstrucción
     ssim_por_imagen = [] # Lista para almacenar el SSIM de cada imagen completa durante la reconstrucción
@@ -152,6 +153,11 @@ def ejecutar_autoencoder(dataset, n_global, n_local, n_layers_val, n_train, n_te
 )
     mejora_str = "Con Mejora" if mejora else "Sin Mejora"
 
+    end_time_preproceso = time.time() # Tiempo de fin para medir el tiempo del preprocesamiento de datos
+    tiempo_preproceso = end_time_preproceso - start_time_preproceso
+
+
+    start_time_entrenamiento = time.time()
 
     # for idx_img in range(Y.shape[0]): #PHASE-FIELD
     for f in files:
@@ -184,7 +190,7 @@ def ejecutar_autoencoder(dataset, n_global, n_local, n_layers_val, n_train, n_te
         # img_array = torch.from_numpy(img_np).float().to(device)
 
 
-        img = Image.open(f)
+        img = funciones_estado.open_image_safe(f)
         # Redimensionar la imagen a las dimensiones especificadas
         img = img.resize(resize_dim)
         img_array = torch.from_numpy(np.array(img)).float().to(device)
@@ -270,8 +276,16 @@ def ejecutar_autoencoder(dataset, n_global, n_local, n_layers_val, n_train, n_te
     heatmap = np.zeros(resize_dim)
     contador = np.zeros(resize_dim)
 
+    end_time_entrenamiento = time.time()
+    tiempo_entrenamiento = end_time_entrenamiento - start_time_entrenamiento
+
+
+    start_time_reconstruccion = time.time()
 
     for f in files_test:
+        mse_por_bloque = [] # Lista para almacenar los MSE por bloque durante la reconstrucción
+        mse_por_bloque_intensity = [] # Lista para almacenar los MSE por bloque durante la reconstrucción teniendo en cuenta la intensidad de los píxeles (escalando la imagen reconstruida a su rango original de 0-255 antes de calcular el MSE)
+  
         numero = os.path.basename(os.path.dirname(f))
 
         output_dir = os.path.join(
@@ -294,7 +308,7 @@ def ejecutar_autoencoder(dataset, n_global, n_local, n_layers_val, n_train, n_te
         combined_save_path = os.path.join(output_dir, f"comparacion_{nombre}")
 
 
-        img = Image.open(f)
+        img = funciones_estado.open_image_safe(f)
         # Redimensionar la imagen a las dimensiones especificadas
         img = img.resize(resize_dim)
         img_array = torch.from_numpy(np.array(img)).float().to(device)
@@ -362,12 +376,12 @@ def ejecutar_autoencoder(dataset, n_global, n_local, n_layers_val, n_train, n_te
                 else:
                     #MSE DEL ENTRENAMIENTO DIRECTAMENTE
                     recon = recon.flatten()
-                    mse = torch.mean((state.flatten() - recon)**2)
+                    mse = torch.mean((state.flatten() - recon)**2).item()
 
                     #MSE TRAS MULTIPLICARLE EL VALOR DEL FACTOR DE NORMALIZACIÓN, OSEA OBTENER EL ESTADO SIN NORMALIZAR
                     output01 = output_dec / 255.0
                     ouput01_flatten = output01.flatten()
-                    mse_intensity = torch.mean((state.flatten() * norm - ouput01_flatten)**2)
+                    mse_intensity = torch.mean((state.flatten() * norm - ouput01_flatten)**2).item()
                     
                     
                     error = np.abs(state.flatten() * norm - ouput01_flatten)
@@ -439,6 +453,13 @@ def ejecutar_autoencoder(dataset, n_global, n_local, n_layers_val, n_train, n_te
         ssim_por_imagen.append(ssim_val) # Guardar el SSIM de la imagen completa en la lista correspondiente para luego calcular la media global de SSIM por imagen
 
         mse_por_clase[numero].append(media_MSE)
+        mse_por_bloque = []
+        mse_por_bloque_intensity = []
+
+    end_time_reconstruccion = time.time()
+    tiempo_reconstruccion = end_time_reconstruccion - start_time_reconstruccion
+
+    start_time_analisis = time.time()
 
 
     funciones_estado.histograma_MSE_por_clase(mse_por_clase, save_dir)
@@ -467,11 +488,6 @@ def ejecutar_autoencoder(dataset, n_global, n_local, n_layers_val, n_train, n_te
     average_tamaño_comprimido = np.mean(log_tamaño_comprimido) if log_tamaño_comprimido else 0
 
 
-
-    end_time = time.time() # Tiempo de fin para medir el tiempo total de ejecución
-    tiempo_total = end_time - start_time
-    # print(f"Tiempo total: {tiempo_total:.2f} segundos")
-
     ruta_log = os.path.join(
         base_dir,
         "Resultados",
@@ -482,8 +498,26 @@ def ejecutar_autoencoder(dataset, n_global, n_local, n_layers_val, n_train, n_te
         f"{carpeta_intermedia}.txt"
     )
 
+    ruta_tiempos = os.path.join(
+        base_dir,
+        "Resultados",
+        dataset,
+        ansatz,
+        mejora_str,
+        carpeta_intermedia,
+        f"Tiempos.txt"
+    )
+    
+
     # Crear carpetas si no existen
     os.makedirs(os.path.dirname(ruta_log), exist_ok=True)
+
+    end_time = time.time() # Tiempo de fin para medir el tiempo total de ejecución
+
+    tiempo_total = end_time - start_time
+
+    end_time_analisis = time.time()
+    tiempo_analisis = end_time_analisis - start_time_analisis
 
     funciones_estado.guardar_log(
         ruta_log, 
@@ -503,13 +537,16 @@ def ejecutar_autoencoder(dataset, n_global, n_local, n_layers_val, n_train, n_te
         tasa_de_aprendizaje, 
         n_layers,
         n_test * 10,
-        ansatz
+        ansatz,
+        media_final_MSE,
+        media_final_SSIM,
+        media_final_MSE_intensity
     )
 
-
-
-    with open (ruta_log, "a") as f:
-        f.write(f"\nMSE medio global de todas las imagenes: {media_final_MSE:.6f}\n")
-        f.write(f"SSIM medio de las imagenes: {media_final_SSIM:.6f}\n")
-        f.write(f"MSE medio con intensidad de pixeles: {media_final_MSE_intensity:.6f}\n")
-
+    funciones_estado.guardar_tiempos(ruta_tiempos, 
+        tiempo_total, 
+        tiempo_analisis, 
+        tiempo_preproceso, 
+        tiempo_entrenamiento, 
+        tiempo_reconstruccion
+    )

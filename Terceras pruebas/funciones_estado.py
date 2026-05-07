@@ -3,9 +3,11 @@ import os
 import torch
 from sklearn.manifold import TSNE
 import numpy as np
+from PIL import Image, ImageFile
+import time
 
-
-
+# Permite cargar imágenes parcialmente truncadas
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # Inicializamos los módulos (reutilizables)
 
@@ -207,8 +209,8 @@ def prueba(img_array, resize_dim, compressed_img_small, compressed_dim, reconstr
 
 
 def guardar_log(ruta_log, resize_dim, compressed_dim, block_size, n_qubits, tecnica_de_encoding_ansatz, dataset, num_de_imagenes, tiempo_total, average_disk_ratio, average_tamaño_original, average_tamaño_comprimido
-                ,num_iteraciones_globales, num_iteraciones_bloque, tasa_aprendizaje, num_layers_decoder, num_de_imagenes_test_por_numero, ansatz):
-    with open(ruta_log, "a") as f:
+                ,num_iteraciones_globales, num_iteraciones_bloque, tasa_aprendizaje, num_layers_decoder, num_de_imagenes_test_por_numero, ansatz, media_final_MSE, media_final_SSIM, media_final_MSE_intensity):
+    with open(ruta_log, "w") as f:
         f.write("\n\n\n")
         f.write(f"------------- HIPERPARAMETROS -------------\n")
         f.write(f"Resize dimension: {resize_dim}\n")
@@ -233,6 +235,25 @@ def guardar_log(ruta_log, resize_dim, compressed_dim, block_size, n_qubits, tecn
         f.write(f"Ratio de compresion: {average_disk_ratio:.2f}\n")
         f.write(f"Tamano original medio: {average_tamaño_original:.6f} MB\n")
         f.write(f"Tamano comprimido medio: {average_tamaño_comprimido:.6f} MB\n")
+        
+        f.write(f"------------- METRICAS -------------\n")
+
+        f.write(f"\nMSE medio global de la imagen: {media_final_MSE:.6f}\n")
+        f.write(f"SSIM medio de las imagenes: {media_final_SSIM:.6f}\n")
+        f.write(f"MSE medio con intensidad de pixeles: {media_final_MSE_intensity:.6f}\n")
+
+
+def guardar_tiempos(ruta_tiempos, tiempo_total, tiempo_analisis, tiempo_preproceso, tiempo_entrenamiento, tiempo_reconstruccion):
+    with open(ruta_tiempos, "w") as f:
+        f.write("\n\n\n")
+        f.write(f"------------- TIEMPOS DE EJECUCION POR APARTADO -------------\n")
+        f.write(f"Tiempo total de la ejecucion: {tiempo_total}\n")
+        f.write(f"Tiempo preprocesado de información antes de entrenamiento: {tiempo_preproceso}\n")
+        f.write(f"Tiempo entrenamiento: {tiempo_entrenamiento}\n")
+        f.write(f"Tiempo reconstruccion: {tiempo_reconstruccion}\n")
+        f.write(f"Tiempo analisis con graficos mas guardado de logs: {tiempo_analisis}\n")
+        
+
 
 
 
@@ -526,3 +547,15 @@ def loss_autoencoder_SQ(state, recon):
 
     loss = circuito.loss_autoencoder_circuito_SQ(state, recon)
     return loss
+
+
+def open_image_safe(path):
+    while True:
+        try:
+            with Image.open(path) as img:
+
+                img.load()
+                return img.copy()
+        except Exception:
+            time.sleep(0.2)
+    return None
