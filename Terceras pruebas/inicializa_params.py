@@ -22,44 +22,30 @@ def inic_params(block_size, resize_dim, n_qubits_dec, n_qubits, device="cpu"):
     return params
 
 
-def crear_optimizador(optimizer_name, params, tasa_de_aprendizaje):
-    all_params = []
-
-    for params_enc, params_dec in params.values():
-        all_params.append(params_enc)
-        all_params.append(params_dec)
+def crear_optimizador(optimizer_name, params_enc, tasa_de_aprendizaje):
 
     if optimizer_name == "Adam":
-        return torch.optim.Adam(all_params, lr=tasa_de_aprendizaje)
+        return torch.optim.Adam([params_enc], lr=tasa_de_aprendizaje)
     elif optimizer_name == "GradientDescent":
-        return torch.optim.SGD(all_params, lr=tasa_de_aprendizaje)
+        return torch.optim.SGD([params_enc], lr=tasa_de_aprendizaje)
     else:
         raise ValueError(f"Optimizador desconocido: {optimizer_name}")
     
-def inic_params_angle(block_size, resize_dim, n_qubits, n_layers, ansatz):
-    params = {}
-    for i in range(0, resize_dim[0], block_size):
-        for j in range(0, resize_dim[1], block_size):
-            if ansatz == "StronglyEntangling":
-                params_enc = torch.nn.Parameter(
-                    0.01 * torch.randn(n_layers, n_qubits, 3)
-                )
-                
-                params_dec = torch.nn.Parameter(
-                    0.01 * torch.randn(n_layers, n_qubits, 3)
-                )
-            elif ansatz == "Paper":
-                params_enc = torch.nn.Parameter(
-                    0.01 * torch.randn(n_layers, n_qubits, 2)
-                )
-                
-                params_dec = torch.nn.Parameter(
-                    0.01 * torch.randn(n_layers, n_qubits, 2)
-                )
+def inic_params_angle(n_qubits, n_layers, ansatz):
 
-            params[(i, j)] = (params_enc, params_dec)
+    if ansatz == "StronglyEntangling":
 
-    return params
+        params_enc = torch.nn.Parameter(
+            0.01 * torch.randn(n_layers, n_qubits, 3)
+        )
+
+    elif ansatz == "Paper":
+
+        params_enc = torch.nn.Parameter(
+            0.01 * torch.randn(n_layers, n_qubits, 2)
+        )
+
+    return params_enc
 
 
 
@@ -122,53 +108,42 @@ def crear_optimizador_SQ(optimizer_name, thetas, phis, params_decs, tasa_de_apre
         raise ValueError(f"Optimizador desconocido: {optimizer_name}")
     
 
-def inic_params_SQ_orig(block_size, resize_dim, n_layers, opt_params, n_qubits):
-    params = {}
-    
+def inic_params_SQ_global(block_size, n_layers, n_qubits, ansatz):
+
+    # -----------------------------
+    # PARÁMETROS GLOBALES THETA/PHI
+    # -----------------------------
+
     n_features = block_size * block_size  # nº de píxeles por bloque
 
 
-    for i in range(0, resize_dim[0], block_size):
-        for j in range(0, resize_dim[1], block_size):
+    theta = torch.nn.Parameter(0.1 * torch.randn(n_features))
+    phi   = torch.nn.Parameter(0.1 * torch.randn(n_features))
 
-            if opt_params == False:
+    # -----------------------------
+    # DECODER GLOBAL
+    # -----------------------------
 
-                theta = torch.nn.Parameter(
-                    0.1 * torch.randn(1, n_features)
-                )
+    if ansatz == "StronglyEntangling":
 
-                phi = torch.nn.Parameter(
-                    0.1 * torch.randn(1, n_features)
-                )
-            else:
-                theta = torch.nn.Parameter(
-                    0.1 * torch.randn(1, 1)
-                )
+        params_dec = torch.nn.Parameter(
+            0.01 * torch.randn(n_layers, n_qubits, 3)
+        )
 
-                phi = torch.nn.Parameter(
-                    0.1 * torch.randn(1, 1)
-                )
+    elif ansatz == "Paper":
 
-            # decoder (NO tocar)
-            params_dec = torch.nn.Parameter(
-                0.01 * torch.randn(n_layers, n_qubits, 3)
-            )
+        params_dec = torch.nn.Parameter(
+            0.01 * torch.randn(n_layers, n_qubits, 2)
+        )
 
-            params[(i, j)] = (theta, phi, params_dec)
+    return theta, phi, params_dec
 
-    return params
+def crear_optimizador_SQ_orig(optimizer_name, theta, phi, params_dec, tasa_de_aprendizaje):
 
-def crear_optimizador_SQ_orig(optimizer_name, params, tasa_de_aprendizaje):
-    all_params = []
-
-    for theta, phi, params_dec in params.values():
-        all_params.append(theta)
-        all_params.append(phi)
-        all_params.append(params_dec)
 
     if optimizer_name == "Adam":
-        return torch.optim.Adam(all_params, lr=tasa_de_aprendizaje)
+        return torch.optim.Adam([theta, phi, params_dec], lr=tasa_de_aprendizaje)
     elif optimizer_name == "GradientDescent":
-        return torch.optim.SGD(all_params, lr=tasa_de_aprendizaje)
+        return torch.optim.SGD([theta, phi, params_dec], lr=tasa_de_aprendizaje)
     else:
         raise ValueError(f"Optimizador desconocido: {optimizer_name}")
