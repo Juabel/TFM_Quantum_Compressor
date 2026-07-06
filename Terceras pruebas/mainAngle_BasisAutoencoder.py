@@ -11,13 +11,16 @@ import generador_datos
 import os
 from torch.utils.data import DataLoader 
 import random
+from sklearn.model_selection import train_test_split
+import copy
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 
 # ------------------ Configuración variables iniciales ------------------
 
 
-def ejecutar_autoencoder(basis_valor, dataset, n_epochs, batch_size, n_layers_val, n_train, n_test, ansatz, mejora, k):
+def ejecutar_autoencoder(basis_valor, dataset, n_epochs, batch_size, n_layers_val, n_train, n_test, ansatz, mejora, k, dev_size, lr):
     start_time = time.time() # Tiempo de inicio para medir el tiempo total de ejecución
 
     start_time_preproceso = time.time() # Tiempo de inicio para medir el tiempo del preprocesamiento de datos
@@ -37,13 +40,6 @@ def ejecutar_autoencoder(basis_valor, dataset, n_epochs, batch_size, n_layers_va
         resize_dim = (28, 28)
         mse_por_clase = {str(i): [] for i in range(10)}
 
-        train_dataset = generador_datos.QuantumImageDataset(files, resize_dim)
-
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=batch_size,
-            shuffle=True
-        )
 
 
     elif dataset == "SAR":
@@ -59,17 +55,28 @@ def ejecutar_autoencoder(basis_valor, dataset, n_epochs, batch_size, n_layers_va
 
         resize_dim = (100, 100)
         mse_por_clase = {str(i): [] for i in range(2)}
-        train_dataset = generador_datos.QuantumImageDataset(files, resize_dim)
 
-        train_loader = DataLoader(
+        
+    files_train, files_dev = train_test_split(files, test_size=dev_size , random_state=42)
+
+
+    train_dataset = generador_datos.QuantumImageDataset(files_train, resize_dim)
+    dev_dataset = generador_datos.QuantumImageDataset(
+        files_dev,
+        resize_dim
+    )
+
+    train_loader = DataLoader(
             train_dataset,
             batch_size=batch_size,
             shuffle=True
-        )
-        
+    )
+    dev_loader = DataLoader(
+        dev_dataset,
+        batch_size=batch_size,
+        shuffle=False
+    )
 
-
-    tasa_de_aprendizaje = 0.05 # Tasa de aprendizaje para el optimizador
 
     output_block_size_height = 1   # Porque tiene 4 Z-vals → 2×2 image
     output_block_size_width = 2 # Porque tiene 4 Z-vals → 2×2 image
@@ -107,6 +114,8 @@ def ejecutar_autoencoder(basis_valor, dataset, n_epochs, batch_size, n_layers_va
     ssim_por_imagen = [] # Lista para almacenar el SSIM de cada imagen completa durante la reconstrucción
 
     train_loss_history = []
+    dev_loss_history = []
+
     batch_loss_history = []
     grad_history = []
     block_loss_history = []
@@ -128,8 +137,18 @@ def ejecutar_autoencoder(basis_valor, dataset, n_epochs, batch_size, n_layers_va
     autoencoder_recon_dagger = funciones_estado.inicializar_autoencoder_dagger(dev)
     circuit_encoder_probs = funciones_estado.inicializa_encoder_probs(dev)
 
+    tasa_de_aprendizaje = lr # Tasa de aprendizaje para el optimizador
 
     opt = inicializa_params.crear_optimizador(optimizer_name, params_enc, tasa_de_aprendizaje)
+    scheduler = ReduceLROnPlateau(
+        opt,
+        mode="min",
+        factor=0.5,
+        patience=1,
+        threshold=1e-5,
+        threshold_mode="abs",
+        min_lr=1e-8
+    )
 
     num_epochs = n_epochs
 
@@ -141,6 +160,9 @@ def ejecutar_autoencoder(basis_valor, dataset, n_epochs, batch_size, n_layers_va
         test_nombre = n_test * 2
 
 
+    best_dev_loss = float("inf")
+    best_params = None
+
     base_dir = r"\\datastore.tekniker.es\ia\data-analytics\KUBIBIT\DataEncoding"
     carpeta_intermedia = (
     f"{tecnica_de_encoding_ansatz}_"
@@ -148,7 +170,9 @@ def ejecutar_autoencoder(basis_valor, dataset, n_epochs, batch_size, n_layers_va
     f"batchsize{batch_size}_"
     f"layers{n_layers}_"
     f"train{train_nombre}_"
-    f"test{test_nombre}"
+    f"test{test_nombre}_"
+    f"bloques{k}_"
+    f"lr{tasa_de_aprendizaje}"
 )
     mejora_str = "Con Mejora" if mejora else "Sin Mejora"
 
@@ -242,6 +266,122 @@ def ejecutar_autoencoder(basis_valor, dataset, n_epochs, batch_size, n_layers_va
 
         print(f"\nEpoch {epoch+1} finalizada")
         print(f"Loss media epoch: {avg_epoch_loss:.6f}")
+
+
+
+        dev_epoch_loss = 0.0
+
+        with torch.no_grad():
+
+            for batch_idx, (images, paths) in enumerate(dev_loader):
+
+                images = images.to(device)
+
+                batch_total_loss = 0.0
+
+                total_valid_images = 0
+
+                for img_idx in range(images.shape[0]):
+
+                    img = images[img_idx]
+
+                    total_img_loss = 0.0
+
+                    valid_coords = funciones_estado.get_valid_blocks(
+                        img,
+                        block_size
+                    )
+
+                    # IMPORTANTE:
+                    # En validation usamos TODOS los bloques
+                    sampled_blocks = valid_coords
+
+                    valid_blocks = 0
+
+                    for (i, j) in sampled_blocks:
+
+                        block = img[:, i:i+block_size, j:j+block_size]
+
+                        state_sin_norm, block_sum, norm = (
+                            funciones_estado.imagen_flatten_batch(
+                                block,
+                                device
+                            )
+                        )
+
+                        if norm > 1e-12:
+                            state = state_sin_norm / norm
+                        else:
+                            state = state_sin_norm
+
+                        if basis == "True" and norm > 1e-12:
+                            state = (state > 0.5).int()
+                        
+                        loss, mse = funciones_estado.optimizar_autoencoder_bloque_angle(
+                            params_enc, state, autoencoder_recon_dagger, n_qubits_utiles, n_qubits_total, basis, ansatz, mejora
+                        )
+
+                        total_img_loss += loss.item()
+
+                        valid_blocks += 1
+
+                    if valid_blocks == 0:
+                        continue
+
+                    total_img_loss = total_img_loss / valid_blocks
+
+                    batch_total_loss += total_img_loss
+
+                    total_valid_images += 1
+
+                if total_valid_images == 0:
+                    continue
+
+                batch_total_loss = (
+                    batch_total_loss / total_valid_images
+                )
+
+                dev_epoch_loss += batch_total_loss
+
+        avg_dev_loss = dev_epoch_loss / len(dev_loader)
+
+        dev_loss_history.append(avg_dev_loss)
+
+        scheduler.step(avg_dev_loss)
+        current_lr = opt.param_groups[0]['lr']
+        print(
+            f"Epoch {epoch+1} | "
+            f"Train {avg_epoch_loss:.6f} | "
+            f"Dev {avg_dev_loss:.6f} | "
+            f"LR {opt.param_groups[0]['lr']:.6f}"
+        )
+
+
+        # =====================================================
+        # GUARDAR MEJOR MODELO
+        # =====================================================
+
+        if avg_dev_loss < best_dev_loss:
+
+            best_dev_loss = avg_dev_loss
+
+            best_params = copy.deepcopy(params_enc)
+
+            print("Nuevo mejor modelo guardado")
+
+    # =====================================================
+    # CARGAR MEJOR MODELO SEGÚN DEV LOSS
+    # =====================================================
+
+    if best_params is not None:
+
+        params_enc = best_params
+
+        print("\nMejores parámetros cargados")
+        print(f"Best Dev Loss: {best_dev_loss:.6f}")
+
+
+
 
     end_time_entrenamiento = time.time()
     tiempo_entrenamiento = end_time_entrenamiento - start_time_entrenamiento
@@ -385,7 +525,7 @@ def ejecutar_autoencoder(basis_valor, dataset, n_epochs, batch_size, n_layers_va
         ansatz,
         mejora_str,
         carpeta_intermedia,
-        f"{carpeta_intermedia}.txt"
+        f"log.txt"
     )
 
     ruta_tiempos = os.path.join(
@@ -404,7 +544,7 @@ def ejecutar_autoencoder(basis_valor, dataset, n_epochs, batch_size, n_layers_va
 
     #GRAFICAS
     save_dir = os.path.dirname(output_dir)
-    funciones_estado.get_loss_history(train_loss_history, save_dir)
+    funciones_estado.get_train_dev_loss_plot(train_loss_history, dev_loss_history, save_dir)
     funciones_estado.get_batch_loss(batch_loss_history, save_dir)
     funciones_estado.get_gradient_plot(grad_history, save_dir)
     funciones_estado.get_loss_all_epoch_plot(block_loss_history_all_epochs, save_dir)

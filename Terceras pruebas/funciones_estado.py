@@ -195,31 +195,43 @@ def prueba(img_array, resize_dim, compressed_img_small, compressed_dim, reconstr
 
 
 
-def guardar_log(ruta_log, resize_dim, compressed_dim, block_size, n_qubits, tecnica_de_encoding_ansatz, dataset, num_de_imagenes, tiempo_total
-                ,num_epochs, tasa_aprendizaje, num_layers_decoder, num_de_imagenes_test_por_numero, ansatz, media_final_MSE, media_final_SSIM):
-    with open(ruta_log, "w") as f:
-        f.write("\n\n\n")
-        f.write(f"------------- HIPERPARAMETROS -------------\n")
-        f.write(f"Resize dimension: {resize_dim}\n")
-        f.write(f"Compressed dimension: {compressed_dim}\n")
-        f.write(f"Tamano de bloques: {block_size}x{block_size}\n")
-        f.write(f"Numero de qubits total: {n_qubits}\n")
-        f.write(f"Tecnica de encoding: {tecnica_de_encoding_ansatz}\n")
-        f.write(f"Tipo de imagenes: {dataset}\n")
-        f.write(f"Numero de imagenes total Train: {num_de_imagenes}\n")
-        f.write(f"Numero de imagenes total Test: {num_de_imagenes_test_por_numero}\n")
-        f.write(f"Ansatz usado: {ansatz}\n")
-        f.write(f"-------------  -------------\n")
+def guardar_log(ruta_log,resize_dim,compressed_dim,block_size,n_qubits,tecnica_de_encoding_ansatz,dataset,num_de_imagenes,tiempo_total,num_epochs,tasa_aprendizaje,num_layers_decoder,num_de_imagenes_test_por_numero,ansatz,media_final_MSE,media_final_SSIM):
 
-        #numero iteraciones globales, locales, tasa de aprendizaje, numero de layers de deocoder, 
-        f.write(f"Número de epochs {num_epochs}\n")
-        f.write(f"Tasa de aprendizaje: {tasa_aprendizaje}\n")
-        f.write(f"Número de capas del decoder: {num_layers_decoder}\n")
-        
-        f.write(f"------------- METRICAS -------------\n")
+    carpeta = os.path.dirname(ruta_log)
 
-        f.write(f"\nMSE medio global de la imagen: {media_final_MSE:.6f}\n")
-        f.write(f"SSIM medio de las imagenes: {media_final_SSIM:.6f}\n")
+    while True:
+        try:
+            os.makedirs(carpeta, exist_ok=True)
+            print(os.listdir(carpeta))
+            with open(ruta_log, "w", encoding="utf-8") as f:
+                f.write("\n\n\n")
+                f.write(f"------------- HIPERPARAMETROS -------------\n")
+                f.write(f"Resize dimension: {resize_dim}\n")
+                f.write(f"Compressed dimension: {compressed_dim}\n")
+                f.write(f"Tamano de bloques: {block_size}x{block_size}\n")
+                f.write(f"Numero de qubits total: {n_qubits}\n")
+                f.write(f"Tecnica de encoding: {tecnica_de_encoding_ansatz}\n")
+                f.write(f"Tipo de imagenes: {dataset}\n")
+                f.write(f"Numero de imagenes total Train: {num_de_imagenes}\n")
+                f.write(f"Numero de imagenes total Test: {num_de_imagenes_test_por_numero}\n")
+                f.write(f"Ansatz usado: {ansatz}\n")
+                f.write(f"-------------  -------------\n")
+
+                f.write(f"Número de epochs {num_epochs}\n")
+                f.write(f"Tasa de aprendizaje: {tasa_aprendizaje}\n")
+                f.write(f"Número de capas del decoder: {num_layers_decoder}\n")
+
+                f.write(f"------------- METRICAS -------------\n")
+
+                f.write(f"\nMSE medio global de la imagen: {media_final_MSE:.6f}\n")
+                f.write(f"SSIM medio de las imagenes: {media_final_SSIM:.6f}\n")
+
+            return
+
+        except (FileNotFoundError, OSError) as e:
+            print(f"Error guardando log: {e}")
+            print("Reintentando en 30 segundos...")
+            time.sleep(30)
 
 
 def guardar_tiempos(ruta_tiempos, tiempo_total, tiempo_analisis, tiempo_preproceso, tiempo_entrenamiento, tiempo_reconstruccion):
@@ -538,21 +550,38 @@ def get_valid_blocks(img, block_size):
 
     return coords
 
-def get_loss_history(train_loss_history, save_dir):
+def get_train_dev_loss_plot(train_loss_history,dev_loss_history,save_dir):
 
-    epochs = range(1, len(train_loss_history) + 1)
+    plt.figure(figsize=(10, 6))
 
-    plt.figure(figsize=(8,5))
-    plt.plot(epochs, train_loss_history, marker='o')
+    plt.plot(
+        train_loss_history,
+        label="Train Loss"
+    )
 
-    plt.xticks(epochs)
+    plt.plot(
+        dev_loss_history,
+        label="Dev Loss"
+    )
 
     plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.title("Loss media por epoch")
 
-    plt.grid()
-    plt.savefig(os.path.join(save_dir, "Loss media por epoch.png"))
+    plt.ylabel("Loss")
+
+    plt.title("Train vs Dev Loss")
+
+    plt.legend()
+
+    plt.grid(True)
+
+    save_path = os.path.join(
+        save_dir,
+        "train_dev_loss.png"
+    )
+
+    plt.savefig(save_path)
+
+    plt.close()
 
 def get_batch_loss(batch_loss_history, save_dir):
     plt.figure(figsize=(10,5))

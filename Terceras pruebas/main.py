@@ -2,90 +2,21 @@ import mainAngle_BasisAutoencoder
 import mainAmplitude_DenseAutoencoder
 import mainSQOriginal
 
-basis = "False"
-dense = "False"
-dataset = "MNIST" # "MNIST" o "SAR"
-n_global = 2
-n_local = 10
-n_layers_val = 5
-mejora = False # Si se quiere usar la mejora propuesta en el encoder (solo para el ansatz "Mejora")
-n_train_por_numero = 20
-n_test_por_numero = 5
 
-ansatz = "StronglyEntangling" # Nombre del ansatz a usar en el encoder y decoder ("StronglyEntangling", "Paper")
+BASIS = "False"
+DENSE = "False"
+DATASET = "MNIST"
 
+N_TRAIN_POR_NUMERO = 20
+N_TEST_POR_NUMERO = 5
+DEV_SIZE = 0.2
+N_EPOCHS = 20
 
+MEJORA = False
+ANSATZ = "StronglyEntangling"
+BATCH_SIZE = 16
+N_LAYERS_VAL = 6
+K_BLOQUES = 5
+LR = 0.035
 
-
-dataset = "SAR" 
-ansatz = "StronglyEntangling" # Nombre del ansatz a usar en el encoder y decoder ("StronglyEntangling", "Paper")
-n_layers_val = 5
-
-print("\n SAR CON 80 IMAGENES, STRONGLY, 5 LAYERS, 10 LOCAL\n")
-
-# print("\n Ejecutando autoencoder con Angle, ansatz Strongly, 80 imagenes, 5 layers, 10 local ... \n")
-# mainAngle_BasisAutoencoder.ejecutar_autoencoder(basis, dataset, n_global, n_local, n_layers_val, n_train_por_numero, n_test_por_numero, ansatz, mejora)
-print("\n Ejecutando autoencoder con Basis, ansatz Strongly, 80 imagenes, 5 layers, 10 local ... \n")
-basis = "True"
-mainAngle_BasisAutoencoder.ejecutar_autoencoder(basis, dataset, n_global, n_local, n_layers_val, n_train_por_numero, n_test_por_numero, ansatz, mejora)
-print("\n Ejecutando autoencoder con Amplitude, ansatz Strongly, 80 imagenes, 5 layers, 10 local ... \n")
-mainAmplitude_DenseAutoencoder.ejecutar_autoencoder(dense, dataset, n_global, n_local, n_layers_val, n_train_por_numero, n_test_por_numero, ansatz, mejora)
-print("\n Ejecutando autoencoder con DenseAngle, ansatz Strongly, 80 imagenes, 5 layers, 10 local ... \n")
-dense = "True"
-mainAmplitude_DenseAutoencoder.ejecutar_autoencoder(dense, dataset, n_global, n_local, n_layers_val, n_train_por_numero, n_test_por_numero, ansatz, mejora)
-print("\n Ejecutando autoencoder con SingleQubit/Reup, ansatz Strongly, 80 imagenes, 5 layers, 10 local ... \n")
-mainSQOriginal.ejecutar_autoencoder(dataset, n_global, n_local, n_layers_val, n_train_por_numero, n_test_por_numero, ansatz, mejora)
-basis = "False"
-dense = "False"
-
-
-
-print("\n SAR CON 80 IMAGENES, PAPER MEJORA, 5 LAYERS, 10 LOCAL\n")
-
-
-n_layers_val = 5
-mejora = True # Si se quiere usar la mejora propuesta en el encoder (solo para el ansatz "Mejora")
-ansatz = "Paper" # Nombre del ansatz a usar en el encoder y decoder ("StronglyEntangling", "Paper")
-
-
-print("\n Ejecutando autoencoder con Angle, ansatz Strongly, 80 imagenes, 5 layers, 10 local ... \n")
-mainAngle_BasisAutoencoder.ejecutar_autoencoder(basis, dataset, n_global, n_local, n_layers_val, n_train_por_numero, n_test_por_numero, ansatz, mejora)
-print("\n Ejecutando autoencoder con Basis, ansatz Strongly, 80 imagenes, 5 layers, 10 local ... \n")
-basis = "True"
-mainAngle_BasisAutoencoder.ejecutar_autoencoder(basis, dataset, n_global, n_local, n_layers_val, n_train_por_numero, n_test_por_numero, ansatz, mejora)
-print("\n Ejecutando autoencoder con Amplitude, ansatz Strongly, 80 imagenes, 5 layers, 10 local ... \n")
-mainAmplitude_DenseAutoencoder.ejecutar_autoencoder(dense, dataset, n_global, n_local, n_layers_val, n_train_por_numero, n_test_por_numero, ansatz, mejora)
-print("\n Ejecutando autoencoder con DenseAngle, ansatz Strongly, 80 imagenes, 5 layers, 10 local ... \n")
-dense = "True"
-mainAmplitude_DenseAutoencoder.ejecutar_autoencoder(dense, dataset, n_global, n_local, n_layers_val, n_train_por_numero, n_test_por_numero, ansatz, mejora)
-print("\n Ejecutando autoencoder con SingleQubit/Reup, ansatz Strongly, 80 imagenes, 5 layers, 10 local ... \n")
-mainSQOriginal.ejecutar_autoencoder(dataset, n_global, n_local, n_layers_val, n_train_por_numero, n_test_por_numero, ansatz, mejora)
-basis = "False"
-dense = "False"
-
-
-
-print("\n SAR CON 200 IMAGENES, PAPER SIN MEJORA, 5 LAYERS, 10 LOCAL\n")
-
-
-n_layers_val = 5
-mejora = False # Si se quiere usar la mejora propuesta en el encoder (solo para el ansatz "Mejora")
-ansatz = "Paper" # Nombre del ansatz a usar en el encoder y decoder ("StronglyEntangling", "Paper")
-
-
-
-print("\n Ejecutando autoencoder con Angle, ansatz Strongly, 200 imagenes, 5 layers, 10 local ... \n")
-mainAngle_BasisAutoencoder.ejecutar_autoencoder(basis, dataset, n_global, n_local, n_layers_val, n_train_por_numero, n_test_por_numero, ansatz, mejora)
-print("\n Ejecutando autoencoder con Basis, ansatz Strongly, 200 imagenes, 5 layers, 10 local ... \n")
-basis = "True"
-mainAngle_BasisAutoencoder.ejecutar_autoencoder(basis, dataset, n_global, n_local, n_layers_val, n_train_por_numero, n_test_por_numero, ansatz, mejora)
-print("\n Ejecutando autoencoder con Amplitude, ansatz Strongly, 200 imagenes, 5 layers, 10 local ... \n")
-mainAmplitude_DenseAutoencoder.ejecutar_autoencoder(dense, dataset, n_global, n_local, n_layers_val, n_train_por_numero, n_test_por_numero, ansatz, mejora)
-print("\n Ejecutando autoencoder con DenseAngle, ansatz Strongly, 200 imagenes, 5 layers, 10 local ... \n")
-dense = "True"
-mainAmplitude_DenseAutoencoder.ejecutar_autoencoder(dense, dataset, n_global, n_local, n_layers_val, n_train_por_numero, n_test_por_numero, ansatz, mejora)
-print("\n Ejecutando autoencoder con SingleQubit/Reup, ansatz Strongly, 200 imagenes, 5 layers, 10 local ... \n")
-mainSQOriginal.ejecutar_autoencoder(dataset, n_global, n_local, n_layers_val, n_train_por_numero, n_test_por_numero, ansatz, mejora)
-basis = "False"
-dense = "False"
-
+mainAmplitude_DenseAutoencoder.ejecutar_autoencoder(DENSE, DATASET, N_EPOCHS, BATCH_SIZE, N_LAYERS_VAL, N_TRAIN_POR_NUMERO, N_TEST_POR_NUMERO, ANSATZ, MEJORA, K_BLOQUES, DEV_SIZE, LR)
