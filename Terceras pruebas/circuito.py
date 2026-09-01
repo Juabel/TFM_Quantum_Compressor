@@ -29,7 +29,23 @@ def dense_angle_embedding(state, wire):
             qml.RZ(angle, wires=wire)
 
 
+def preparar_etiqueta(label, wires):
 
+    bits = format(int(label), "02b")   # 0 -> 00, 1 -> 01, 2 -> 10, 3 -> 11
+
+    for bit, wire in zip(bits, wires):
+        if bit == "1":
+            qml.PauliX(wires=wire)
+
+
+def swap_test(register1, register2, ancilla):
+
+    qml.Hadamard(wires=ancilla)
+
+    for w1, w2 in zip(register1, register2):
+        qml.CSWAP(wires=[ancilla, w1, w2])
+
+    qml.Hadamard(wires=ancilla)
 
 
 def create_autoencoder_recon_ampl_dagger(dev):
@@ -50,15 +66,9 @@ def create_autoencoder_recon_ampl_dagger(dev):
             dense_angle_embedding(state[2:], 1)
             qml.StatePrep(torch.tensor([1.0, 0.0]), wires=[2])
         else:
-            qml.AmplitudeEmbedding(state, wires=[0,1], normalize=True)
-            qml.StatePrep(torch.tensor([1.0,0.0]), wires=[2])
-
+            qml.AmplitudeEmbedding(state, wires=range(8), normalize=True)
         # 2️⃣ Encoder
         encoder_fn(params_enc, mejora)
-
-
-        # 4️⃣ SWAP con ancillas para reinicializar
-        qml.SWAP(wires=[1,2])
 
         # 5️⃣ Decoder sobre los 4 qubits que reconstruyen la imagen
         decoder_fn(params_enc, mejora)       
@@ -74,8 +84,7 @@ def create_autoencoder_recon_ampl_dagger(dev):
 
 
         else:
-            output = qml.probs(wires=[0,1])
-            # trash = qml.expval(qml.Projector([0], wires=[2]))
+            output = qml.probs(wires=range(8))
 
                 
         # ahora los qubits basura están en 2
@@ -85,10 +94,38 @@ def create_autoencoder_recon_ampl_dagger(dev):
     return autoencoder_recon_ampl
 
 
+def create_classifier_ampl(dev):
+    @qml.qnode(dev, interface="torch")
+    def classifier_ampl(state,label,params_enc,denseAngle,ansatz,mejora):
+        encoders = {
+            "StronglyEntangling": encoder_strong,
+            "Paper": encoder_paper,
+        }
+
+        encoder_fn = encoders[ansatz]
+
+        qml.AmplitudeEmbedding(state, wires=range(8), normalize=True)
+
+        encoder_fn(params_enc, mejora)
+
+        preparar_etiqueta(label, wires=[8,9])
+
+        swap_test(
+            register1=[6,7],
+            register2=[8,9],
+            ancilla=10
+        )
+
+        return qml.probs(wires=10)
+    return classifier_ampl
+
+
+
+
 
 def create_encoder_probs_ampl(dev):
     @qml.qnode(dev, interface="torch")
-    def encoder_probs(state , params, denseAngle, ansatz, mejora):
+    def encoder_probs(state , label, params, denseAngle, ansatz, mejora):
 
         encoders = {
             "StronglyEntangling": encoder_strong,
@@ -102,8 +139,8 @@ def create_encoder_probs_ampl(dev):
             dense_angle_embedding(state[2:], 1)
             qml.StatePrep(torch.tensor([1.0, 0.0]), wires=[2])
         else:
-            qml.AmplitudeEmbedding(state, wires=[0,1], normalize=True)
-            qml.StatePrep(torch.tensor([1.0,0.0]), wires=[2])
+            qml.AmplitudeEmbedding(state, wires=range(8), normalize=True)
+            preparar_etiqueta(label, wires=range(8,12))
 
         # Encoder entrenado
         encoder_fn(params, mejora)
@@ -116,19 +153,35 @@ def create_encoder_probs_ampl(dev):
                 for val in (qml.expval(qml.PauliZ(i)), qml.expval(qml.PauliX(i)))
             ]
         else:
-            output = qml.probs(wires=[0])
+            #el estado que tiene la mayor probabilidad de obtencion que seria la etiqueta al fin y al cabocon
+            i = i + 1
 
         return output
 
     return encoder_probs
 
-def loss_autoencoder_circuito_ampl(state, pixels_recon):
+def loss_autoencoder_circuito_ampl(state, class_score):
 
-    recon_loss = torch.mean((state - pixels_recon.flatten())**2)
+    # recon_loss = torch.mean((state - pixels_recon.flatten())**2)
 
     # print("Valor loss basura que tiene que ir disminuyendo: ", trash_loss.item())
 
-    return recon_loss, recon_loss
+    # lambda_class = 0.5
+    # lambda_recon = 0.5
+    p0 = class_score[0]
+
+    fidelity = 2*p0 - 1
+    class_loss = 1 - fidelity
+
+    loss = class_loss
+
+    print(
+    f"p0={p0.item():.4f} "
+    f" fidelity={fidelity.item():.4f} "
+    f" loss={loss.item():.4f}"
+    )
+
+    return loss
 
 
 
@@ -297,13 +350,10 @@ def loss_autoencoder_circuito_SQ(state, pixels_recon):
 
 def encoder_strong(params_enc, mejora):
     
-    n_layers, n_qubits, _ = params_enc.shape
-    #dependiendo del numero de cubits, aplico strongly de una manera u otra
-
-    if n_qubits == 4:
-        qml.StronglyEntanglingLayers(params_enc, wires=[0,1,2,3])
-    elif n_qubits == 2:
-        qml.StronglyEntanglingLayers(params_enc, wires=[0,1])
+    qml.StronglyEntanglingLayers(
+        params_enc,
+        wires=range(8)
+    )
 
 def encoder_paper(params_enc, mejora):
     n_layers, n_qubits, _ = params_enc.shape

@@ -15,7 +15,8 @@ import random
 from sklearn.model_selection import train_test_split
 import copy
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import ConfusionMatrixDisplay
 
 
 
@@ -61,7 +62,7 @@ def ejecutar_autoencoder(dense_valor, dataset, n_epochs, batch_size, n_layers_va
             n_test
         )
 
-        resize_dim = (100, 100)
+        resize_dim = (192, 192)
         mse_por_clase = {str(i): [] for i in range(2)}
         
 
@@ -90,7 +91,7 @@ def ejecutar_autoencoder(dense_valor, dataset, n_epochs, batch_size, n_layers_va
     output_block_size_height = 1   # Porque tiene 4 Z-vals → 2×2 image
     output_block_size_width = 2 # Porque tiene 4 Z-vals → 2×2 image
 
-    block_size = 2 # Tamaño de bloque para dividir la imagen, por ejemplo, bloques de 4x4 píxeles
+    block_size = 16 # Tamaño de bloque para dividir la imagen, por ejemplo, bloques de 4x4 píxeles
     
     n_blocks_h = resize_dim[0] // block_size
     n_blocks_w = resize_dim[1] // block_size
@@ -106,8 +107,8 @@ def ejecutar_autoencoder(dense_valor, dataset, n_epochs, batch_size, n_layers_va
     compressed_rows = compressed_dim[0]   
     compressed_cols = compressed_dim[1]
     
-    n_qubits_total = 3  # 2 para la información del bloque + 1 para el trash
-    n_qubits_utiles = 2
+    n_qubits_total = 11  # 2 para la información del bloque + 1 para el trash
+    n_qubits_utiles = 8
 
     optimizer_name = "Adam" # Nombre del optimizador a usar
     
@@ -140,7 +141,7 @@ def ejecutar_autoencoder(dense_valor, dataset, n_epochs, batch_size, n_layers_va
     params_enc = inicializa_params.inic_params_angle(n_qubits_utiles, n_layers, ansatz)
 
     autoencoder_circuit_dagger = funciones_estado.inicializar_autoencoder_amplitude_dagger(dev)
-    circuit_enc = funciones_estado.inicializa_encoder_probs_ampl(dev)
+    classifier_circuit = funciones_estado.inicializar_classifier_ampl(dev)
 
     tasa_de_aprendizaje = lr # Tasa de aprendizaje para el optimizador
 
@@ -204,46 +205,40 @@ def ejecutar_autoencoder(dense_valor, dataset, n_epochs, batch_size, n_layers_va
 
             for img_idx in range(images.shape[0]):
                 img = images[img_idx]
-                
+                label = int(os.path.basename(os.path.dirname(paths[img_idx])))
+
                 total_img_loss = torch.tensor(0.0, device=device)
-                
-                K_bloques = k
-
-                valid_coords = funciones_estado.get_valid_blocks(img, block_size) 
-                sampled_blocks = random.sample(valid_coords,min(K_bloques, len(valid_coords)))
-
                 valid_blocks = 0
+                for i in range(0, resize_dim[0], block_size):
+                    for j in range(0, resize_dim[1], block_size):
+                        block = img[:, i:i+block_size, j:j+block_size]
+                        state_sin_norm, block_sum, norm = funciones_estado.imagen_flatten_batch(block, device)
 
-                for (i, j) in sampled_blocks:
 
-                    block = img[:, i:i+block_size, j:j+block_size]
+                        if norm > 1e-12:
+                            state = state_sin_norm / norm
+                        else:
+                            state = state_sin_norm  # Si la norma es muy pequeña, usar el estado sin normalizar para evitar división por cero
 
+                                        
+                        loss = funciones_estado.autoencoder_bloque(
+                            params_enc,
+                            state,
+                            label,
+                            autoencoder_circuit_dagger,
+                            classifier_circuit,
+                            denseAngle,
+                            ansatz,
+                            mejora
+                        )
+                        total_img_loss += loss
+                        valid_blocks += 1
 
-                    state_sin_norm, block_sum, norm = funciones_estado.imagen_flatten_batch(block, device)
-    
+                if valid_blocks > 0:
+                    total_img_loss = total_img_loss / valid_blocks
 
-                    if norm > 1e-12:
-                        state = state_sin_norm / norm
-                    else:
-                        state = state_sin_norm  # Si la norma es muy pequeña, usar el estado sin normalizar para evitar división por cero
-
-                                            
-                    loss, mse = funciones_estado.autoencoder_bloque(
-                        params_enc, state, autoencoder_circuit_dagger, denseAngle, ansatz, mejora
-                    )
-
-                    total_img_loss += loss
-                    valid_blocks += 1
-                    block_loss_history.append(loss.item())
-
-                if valid_blocks == 0:
-                    continue
-
-                total_img_loss = total_img_loss / valid_blocks
-
-                batch_total_loss += total_img_loss
-
-                total_valid_images += 1
+                    batch_total_loss += total_img_loss
+                    total_valid_images += 1
 
             if total_valid_images == 0:
                 continue
@@ -295,57 +290,45 @@ def ejecutar_autoencoder(dense_valor, dataset, n_epochs, batch_size, n_layers_va
                 for img_idx in range(images.shape[0]):
 
                     img = images[img_idx]
+                    label = int(os.path.basename(os.path.dirname(paths[img_idx])))
 
-                    total_img_loss = 0.0
-
-                    valid_coords = funciones_estado.get_valid_blocks(
-                        img,
-                        block_size
-                    )
-
-                    # IMPORTANTE:
-                    # En validation usamos TODOS los bloques
-                    sampled_blocks = valid_coords
-
+                    total_img_loss = torch.tensor(0.0, device=device)
                     valid_blocks = 0
 
-                    for (i, j) in sampled_blocks:
+                    for i in range(0, resize_dim[0], block_size):
+                        for j in range(0, resize_dim[1], block_size):
+                            block = img[:, i:i+block_size, j:j+block_size]
 
-                        block = img[:, i:i+block_size, j:j+block_size]
-
-                        state_sin_norm, block_sum, norm = (
+                            state_sin_norm, block_sum, norm = (
                             funciones_estado.imagen_flatten_batch(
                                 block,
                                 device
+                                    )
                             )
-                        )
 
-                        if norm > 1e-12:
-                            state = state_sin_norm / norm
-                        else:
-                            state = state_sin_norm
+                            if norm > 1e-12:
+                                state = state_sin_norm / norm
+                            else:
+                                state = state_sin_norm
 
-                        loss, mse = funciones_estado.autoencoder_bloque(
+                            loss = funciones_estado.autoencoder_bloque(
                             params_enc,
                             state,
+                            label,
                             autoencoder_circuit_dagger,
+                            classifier_circuit,
                             denseAngle,
                             ansatz,
                             mejora
-                        )
+                            )
+                            total_img_loss += loss
+                            valid_blocks += 1
 
-                        total_img_loss += loss.item()
+                    if valid_blocks > 0:
+                        total_img_loss = total_img_loss / valid_blocks
 
-                        valid_blocks += 1
-
-                    if valid_blocks == 0:
-                        continue
-
-                    total_img_loss = total_img_loss / valid_blocks
-
-                    batch_total_loss += total_img_loss
-
-                    total_valid_images += 1
+                        batch_total_loss += total_img_loss
+                        total_valid_images += 1
 
                 if total_valid_images == 0:
                     continue
@@ -397,12 +380,18 @@ def ejecutar_autoencoder(dense_valor, dataset, n_epochs, batch_size, n_layers_va
 
     start_time_reconstruccion = time.time()
 
+    correct = 0
+    total = 0
+
+    y_true = []
+    y_pred = []
+
     with torch.no_grad():
 
         for f in files_test:
             mse_por_bloque = [] # Lista para almacenar los MSE por bloque durante la reconstrucción
 
-            numero = os.path.basename(os.path.dirname(f))
+            numero = int(os.path.basename(os.path.dirname(f)))
 
             output_dir = os.path.join(
                 base_dir,
@@ -411,7 +400,7 @@ def ejecutar_autoencoder(dense_valor, dataset, n_epochs, batch_size, n_layers_va
                 ansatz,
                 mejora_str,
                 carpeta_intermedia,
-                numero
+                str(numero)
             )
             
             os.makedirs(output_dir, exist_ok=True)
@@ -433,11 +422,10 @@ def ejecutar_autoencoder(dense_valor, dataset, n_epochs, batch_size, n_layers_va
                 img_array = img_array.squeeze(0)
 
 
-            for i in range(0, resize_dim[0], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (filas)
-                for j in range(0, resize_dim[1], block_size): # Iterar sobre la imagen en pasos del tamaño del bloque (columnas)
+            for i in range(0, resize_dim[0], block_size):
+                for j in range(0, resize_dim[1], block_size):
                     block = img_array[i:i+block_size, j:j+block_size]
 
-                    # Dividir entre 255
                     block = block / 255.0
 
                     state_sin_norm, block_sum, norm = funciones_estado.imagen_flatten_batch(block,device)
@@ -446,27 +434,6 @@ def ejecutar_autoencoder(dense_valor, dataset, n_epochs, batch_size, n_layers_va
                         state = state_sin_norm / norm
                     else:
                         state = state_sin_norm  # Si la norma es muy pequeña, usar el estado sin normalizar para evitar división por cero
-
-                    vals_enc = circuit_enc(state, params_enc, denseAngle, ansatz, mejora)
-
-                    if isinstance(vals_enc, list):
-                        vals_enc = torch.stack(vals_enc)
-
-                    if denseAngle == "True":
-                        vals_enc = (1 - vals_enc) / 2
-                    else:
-                        vals_enc = torch.sqrt(vals_enc)
-
-                    
-                    # Índices destino en la imagen comprimida
-                    row_idx = (i // block_size) * output_block_size_height
-                    col_idx = (j // block_size) * output_block_size_width
-
-
-                    output = funciones_estado.escalar_generar_imagen_mediciones_encoder(vals_enc, output_block_size_height, output_block_size_width, norm)
-
-                    compressed_img_small[row_idx:row_idx+output_block_size_height,
-                                    col_idx:col_idx+output_block_size_width] = output
 
                     recon = autoencoder_circuit_dagger(state, params_enc, denseAngle, ansatz, mejora)
 
@@ -493,6 +460,33 @@ def ejecutar_autoencoder(dense_valor, dataset, n_epochs, batch_size, n_layers_va
 
                     mse_por_bloque.append(mse) # Guardar el MSE de cada bloque en la lista correspondiente para luego analizar la distribución de errores por bloque a lo largo de toda la imagen y entre imágenes
 
+            scores = []
+
+            for label in range(10):
+
+                probs = classifier_circuit(
+                            state,
+                            label,
+                            params_enc,
+                            denseAngle,
+                            ansatz,
+                            mejora
+                )
+
+                fidelity = 2 * probs[0] - 1
+
+                scores.append(fidelity.item())
+            pred_label = np.argmax(scores)
+            y_true.append(numero)
+            y_pred.append(pred_label)
+
+            if pred_label == numero:
+                correct += 1
+
+            total += 1
+
+
+
             
             # Guardar las imágenes resultantes
 
@@ -518,8 +512,29 @@ def ejecutar_autoencoder(dense_valor, dataset, n_epochs, batch_size, n_layers_va
             mse_por_imagen.append(media_MSE) # Guardar el MSE medio de la imagen completa en la lista correspondiente para luego calcular la media global de MSE por imagen
             ssim_por_imagen.append(ssim_val) # Guardar el SSIM de la imagen completa en la lista correspondiente para luego calcular la media global de SSIM por imagen
 
-            mse_por_clase[numero].append(media_MSE)
+            mse_por_clase[str(numero)].append(media_MSE)
             mse_por_bloque = []
+
+    accuracy = correct / total
+
+    cm = confusion_matrix(y_true, y_pred)
+
+    disp = ConfusionMatrixDisplay(cm)
+
+    disp.plot(cmap="Blues")
+
+    plt.show()
+
+
+    print(f"\nClase real: {numero}")
+
+    for i, s in enumerate(scores):
+        print(f"Clase {i}: {s:.4f}")
+
+    print(f"Predicción: {pred_label}")
+
+
+    print(f"\nAccuracy clasificación: {accuracy:.4f}")
 
     end_time_reconstruccion = time.time()
     tiempo_reconstruccion = end_time_reconstruccion - start_time_reconstruccion

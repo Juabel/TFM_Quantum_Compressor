@@ -102,25 +102,25 @@ from itertools import product
 BASIS = "False"
 DENSE = "False"
 DATASET = "SAR" # Es para el log
-N_TRAIN_POR_NUMERO = 40
-N_TEST_POR_NUMERO = 10
+N_TRAIN_POR_NUMERO = 10
+N_TEST_POR_NUMERO = 1
 DEV_SIZE = 0.2
-N_EPOCHS = 20
-BATCH_SIZE = 8
+N_EPOCHS = 3
+BATCH_SIZE = 4
 N_LAYERS_VAL = 6
 MEJORA = False # Si se quiere usar la mejora propuesta en el encoder (solo para el ansatz "Mejora")
 ANSATZ = "StronglyEntangling" # Nombre del ansatz a usar en el encoder y decoder ("StronglyEntangling", "Paper")
-K_BLOQUES = 25
-LR = 0.01
+K_BLOQUES = 5
+LR = 0.2
 
 
 mainAmplitude_DenseAutoencoder.ejecutar_autoencoder(DENSE, DATASET, N_EPOCHS, BATCH_SIZE, N_LAYERS_VAL, N_TRAIN_POR_NUMERO, N_TEST_POR_NUMERO, ANSATZ, MEJORA, K_BLOQUES, DEV_SIZE, LR)
-DENSE = "True"
-mainAmplitude_DenseAutoencoder.ejecutar_autoencoder(DENSE, DATASET, N_EPOCHS, BATCH_SIZE, N_LAYERS_VAL, N_TRAIN_POR_NUMERO, N_TEST_POR_NUMERO, ANSATZ, MEJORA, K_BLOQUES, DEV_SIZE, LR)
-print("Angle \n")
-mainAngle_BasisAutoencoder.ejecutar_autoencoder(BASIS, DATASET, N_EPOCHS, BATCH_SIZE, N_LAYERS_VAL, N_TRAIN_POR_NUMERO, N_TEST_POR_NUMERO, ANSATZ, MEJORA, K_BLOQUES, DEV_SIZE, LR)
-BASIS = "True"
-print("Basis \n")
-mainAngle_BasisAutoencoder.ejecutar_autoencoder(BASIS, DATASET, N_EPOCHS, BATCH_SIZE, N_LAYERS_VAL, N_TRAIN_POR_NUMERO, N_TEST_POR_NUMERO, ANSATZ, MEJORA, K_BLOQUES, DEV_SIZE, LR)
-print("SQ \n")
-mainSQOriginal.ejecutar_autoencoder(DATASET, N_EPOCHS, BATCH_SIZE, N_LAYERS_VAL, N_TRAIN_POR_NUMERO, N_TEST_POR_NUMERO, ANSATZ, MEJORA, K_BLOQUES, DEV_SIZE, LR)
+# DENSE = "True"
+# mainAmplitude_DenseAutoencoder.ejecutar_autoencoder(DENSE, DATASET, N_EPOCHS, BATCH_SIZE, N_LAYERS_VAL, N_TRAIN_POR_NUMERO, N_TEST_POR_NUMERO, ANSATZ, MEJORA, K_BLOQUES, DEV_SIZE, LR)
+# print("Angle \n")
+# mainAngle_BasisAutoencoder.ejecutar_autoencoder(BASIS, DATASET, N_EPOCHS, BATCH_SIZE, N_LAYERS_VAL, N_TRAIN_POR_NUMERO, N_TEST_POR_NUMERO, ANSATZ, MEJORA, K_BLOQUES, DEV_SIZE, LR)
+# BASIS = "True"
+# print("Basis \n")
+# mainAngle_BasisAutoencoder.ejecutar_autoencoder(BASIS, DATASET, N_EPOCHS, BATCH_SIZE, N_LAYERS_VAL, N_TRAIN_POR_NUMERO, N_TEST_POR_NUMERO, ANSATZ, MEJORA, K_BLOQUES, DEV_SIZE, LR)
+# print("SQ \n")
+# mainSQOriginal.ejecutar_autoencoder(DATASET, N_EPOCHS, BATCH_SIZE, N_LAYERS_VAL, N_TRAIN_POR_NUMERO, N_TEST_POR_NUMERO, ANSATZ, MEJORA, K_BLOQUES, DEV_SIZE, LR)

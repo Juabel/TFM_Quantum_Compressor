@@ -110,18 +110,23 @@ def reconstruccion_bloque_decoder(z_vals, block_size):
     #return qml.numpy.reshape(z_vals, (4, 4), order='F')
 
 
-def autoencoder_bloque(params_enc, state, autoencoder_circuit_dagger, denseAngle, ansatz, mejora):
+def autoencoder_bloque(params_enc, state, label, autoencoder_circuit_dagger, classifier_circuit, denseAngle, ansatz, mejora):
 
 
-    recon = apply_autoencoder_recon_ampl(state, params_enc, autoencoder_circuit_dagger, denseAngle, ansatz, mejora)
+    class_score = apply_autoencoder_recon_ampl(state, params_enc, autoencoder_circuit_dagger, denseAngle, ansatz, mejora, classifier_circuit, label)
+
+    # recon, class_score = apply_autoencoder_recon_ampl(state, params_enc, autoencoder_circuit_dagger, denseAngle, ansatz, mejora, classifier_circuit, label)
+
+    print("--------------------------------")
+    print("Label:", label)
+    print("Swap:", class_score.detach().numpy())
 
 
     # ---------- Loss ----------
-    loss, recon_loss = loss_autoencoder_ampl(state, recon, denseAngle)
+    loss = loss_autoencoder_ampl(state, class_score, denseAngle)
     # ---------- Backprop ---------
 
-    return loss, recon_loss
-
+    return loss
 
 def graficar(img_array, resize_dim, compressed_img_small, compressed_dim, reconstructed_img_small, output_path):
     plt.figure(figsize=(12, 4)) # Imagen original
@@ -378,6 +383,10 @@ def inicializar_autoencoder_amplitude_dagger(dev):
     import circuito
     autoencoder = circuito.create_autoencoder_recon_ampl_dagger(dev)
     return autoencoder
+def inicializar_classifier_ampl(dev):
+    import circuito
+    classifier = circuito.create_classifier_ampl(dev)
+    return classifier
 def inicializa_encoder_probs_ampl(dev):
     import circuito
     circuit_enc = circuito.create_encoder_probs_ampl(dev)
@@ -396,26 +405,28 @@ def inicializa_encoder_probs_SQ(dev):
 
 
 
-def apply_autoencoder_recon_ampl(state, params_encoder, autoencoder_recon_ampl, denseAngle, ansatz, mejora):
+def apply_autoencoder_recon_ampl(state, params_encoder, autoencoder_recon_ampl, denseAngle, ansatz, mejora, classifier_circuit, label):
 
-    expvals = autoencoder_recon_ampl(state, params_encoder, denseAngle, ansatz, mejora)
+    # recon = autoencoder_recon_ampl(state, params_encoder, denseAngle, ansatz, mejora)
+    class_score = classifier_circuit(state, label, params_encoder, denseAngle, ansatz, mejora)
 
     # print(qml.draw(autoencoder_recon_ampl)(state, params_encoder, params_decoder, denseAngle))
 
+    return class_score
 
-    return expvals
+    # return recon, class_score
 
 
-def loss_autoencoder_ampl(state, recon, denseAngle):
+def loss_autoencoder_ampl(state, class_score, denseAngle):
     import circuito
-    if denseAngle == "True":
-        recon = (1 - torch.stack(recon)) / 2
-    else:
-        recon = torch.sqrt(recon)
+    # if denseAngle == "True":
+    #     recon = (1 - torch.stack(recon)) / 2
+    # else:
+    #     recon = torch.sqrt(recon)
     state = state.flatten()
 
-    loss, recon_loss = circuito.loss_autoencoder_circuito_ampl(state, recon)
-    return loss, recon_loss
+    loss = circuito.loss_autoencoder_circuito_ampl(state, class_score)
+    return loss
 
 
 
