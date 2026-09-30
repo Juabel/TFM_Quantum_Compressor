@@ -28,11 +28,9 @@ Y sí, todo esto acabó convertido en una cantidad bastante considerable de arch
 
 ## ⚠️ Aviso importante antes de entrar
 
-Espero sinceramente que **nadie tenga que trabajar nunca sobre este proyecto**.
+Espero sinceramente que **nadie tenga que trabajar nunca sobre este proyecto** XD.
 
-No porque no funcione, sino porque la distribución del código es actualmente una especie de:
-
-> *"Esto lo hice hace meses, sé que funciona, pero no me preguntes por qué."*
+No porque no funcione, sino porque la distribución del código es actualmente "complicada".
 
 El código está bastante caótico, hay archivos de pruebas por todas partes y, para añadir más emoción, **prácticamente no hay comentarios**.  
 Me hubiera gustado dejarlo bastante más limpio y organizado, pero sinceramente **no me ha dado la vida**. XD
